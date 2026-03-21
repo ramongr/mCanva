@@ -73,4 +73,9 @@ describe('App', () => {
     await userEvent.click(rectBtn)
     expect(rectBtn).toHaveAttribute('aria-pressed', 'true')
   })
+
+  it('renders the layers panel', () => {
+    render(<App />)
+    expect(screen.getByTestId('layers-panel')).toBeInTheDocument()
+  })
 })
