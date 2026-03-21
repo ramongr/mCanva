@@ -66,3 +66,23 @@ export function findElement(
 ): WireframeElement | undefined {
   return elements.find((el) => el.id === id)
 }
+
+/**
+ * Moves an element to a specific index in the z-order array.
+ * The target index is clamped to valid range [0, elements.length - 1].
+ * Returns a new array (immutable). Is a no-op when id is not found.
+ */
+export function moveElementTo(
+  elements: WireframeElement[],
+  id: string,
+  targetIndex: number,
+): WireframeElement[] {
+  const idx = elements.findIndex((el) => el.id === id)
+  if (idx === -1) return elements
+  const clamped = Math.max(0, Math.min(targetIndex, elements.length - 1))
+  if (idx === clamped) return elements
+  const next = [...elements]
+  const [removed] = next.splice(idx, 1)
+  next.splice(clamped, 0, removed)
+  return next
+}

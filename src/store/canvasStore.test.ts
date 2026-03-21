@@ -10,7 +10,7 @@ import type { ArrowElement } from '@/types/shapes'
 function resetStore() {
   useCanvasStore.setState({
     elements: [],
-    selectedId: null,
+    selectedIds: new Set(),
     activeTool: null,
   })
 }
@@ -36,9 +36,9 @@ describe('addElement', () => {
     expect(useCanvasStore.getState().elements[1].id).toBe('e1')
   })
 
-  it('does not change selectedId', () => {
+  it('does not change selectedIds', () => {
     useCanvasStore.getState().addElement(createRectElement({ id: 'r1' }))
-    expect(useCanvasStore.getState().selectedId).toBeNull()
+    expect(useCanvasStore.getState().selectedIds.size).toBe(0)
   })
 })
 
@@ -70,8 +70,9 @@ describe('addElementAt', () => {
 
   it('auto-selects the new element', () => {
     useCanvasStore.getState().addElementAt('rect', 0, 0)
-    const { selectedId, elements } = useCanvasStore.getState()
-    expect(selectedId).toBe(elements[0].id)
+    const { selectedIds, elements } = useCanvasStore.getState()
+    expect(selectedIds.has(elements[0].id)).toBe(true)
+    expect(selectedIds.size).toBe(1)
   })
 
   it('resets activeTool to null after placing', () => {
@@ -126,19 +127,20 @@ describe('removeElement', () => {
     expect(elements[0].id).toBe('e1')
   })
 
-  it('clears selectedId when the selected element is removed', () => {
+  it('removes id from selectedIds when the selected element is removed', () => {
     useCanvasStore.getState().addElement(createRectElement({ id: 'r1' }))
-    useCanvasStore.setState({ selectedId: 'r1' })
+    useCanvasStore.setState({ selectedIds: new Set(['r1']) })
     useCanvasStore.getState().removeElement('r1')
-    expect(useCanvasStore.getState().selectedId).toBeNull()
+    expect(useCanvasStore.getState().selectedIds.has('r1')).toBe(false)
+    expect(useCanvasStore.getState().selectedIds.size).toBe(0)
   })
 
-  it('preserves selectedId when a different element is removed', () => {
+  it('preserves other selectedIds when a different element is removed', () => {
     useCanvasStore.getState().addElement(createRectElement({ id: 'r1' }))
     useCanvasStore.getState().addElement(createEllipseElement({ id: 'e1' }))
-    useCanvasStore.setState({ selectedId: 'e1' })
+    useCanvasStore.setState({ selectedIds: new Set(['e1']) })
     useCanvasStore.getState().removeElement('r1')
-    expect(useCanvasStore.getState().selectedId).toBe('e1')
+    expect(useCanvasStore.getState().selectedIds.has('e1')).toBe(true)
   })
 
   it('is a no-op for an unknown id', () => {
@@ -149,31 +151,74 @@ describe('removeElement', () => {
 })
 
 // ---------------------------------------------------------------------------
-// selectElement / clearSelection
+// selectElements / toggleElementSelection / addToSelection / clearSelection
 // ---------------------------------------------------------------------------
 
-describe('selectElement', () => {
+describe('selectElements', () => {
   beforeEach(resetStore)
 
-  it('sets selectedId to the given id', () => {
-    useCanvasStore.getState().selectElement('r1')
-    expect(useCanvasStore.getState().selectedId).toBe('r1')
+  it('replaces selectedIds with the given set', () => {
+    useCanvasStore.getState().selectElements(new Set(['r1', 'e1']))
+    const { selectedIds } = useCanvasStore.getState()
+    expect(selectedIds.has('r1')).toBe(true)
+    expect(selectedIds.has('e1')).toBe(true)
+    expect(selectedIds.size).toBe(2)
   })
 
-  it('can select null to deselect', () => {
-    useCanvasStore.setState({ selectedId: 'r1' })
-    useCanvasStore.getState().selectElement(null)
-    expect(useCanvasStore.getState().selectedId).toBeNull()
+  it('can clear selection by passing an empty set', () => {
+    useCanvasStore.setState({ selectedIds: new Set(['r1']) })
+    useCanvasStore.getState().selectElements(new Set())
+    expect(useCanvasStore.getState().selectedIds.size).toBe(0)
+  })
+})
+
+describe('toggleElementSelection', () => {
+  beforeEach(resetStore)
+
+  it('adds an id that is not yet selected', () => {
+    useCanvasStore.getState().toggleElementSelection('r1')
+    expect(useCanvasStore.getState().selectedIds.has('r1')).toBe(true)
+  })
+
+  it('removes an id that is already selected', () => {
+    useCanvasStore.setState({ selectedIds: new Set(['r1']) })
+    useCanvasStore.getState().toggleElementSelection('r1')
+    expect(useCanvasStore.getState().selectedIds.has('r1')).toBe(false)
+  })
+
+  it('does not affect other selected ids when toggling one off', () => {
+    useCanvasStore.setState({ selectedIds: new Set(['r1', 'e1']) })
+    useCanvasStore.getState().toggleElementSelection('r1')
+    expect(useCanvasStore.getState().selectedIds.has('e1')).toBe(true)
+    expect(useCanvasStore.getState().selectedIds.size).toBe(1)
+  })
+})
+
+describe('addToSelection', () => {
+  beforeEach(resetStore)
+
+  it('adds an id without clearing the existing selection', () => {
+    useCanvasStore.setState({ selectedIds: new Set(['r1']) })
+    useCanvasStore.getState().addToSelection('e1')
+    const { selectedIds } = useCanvasStore.getState()
+    expect(selectedIds.has('r1')).toBe(true)
+    expect(selectedIds.has('e1')).toBe(true)
+  })
+
+  it('is idempotent when adding an already-selected id', () => {
+    useCanvasStore.setState({ selectedIds: new Set(['r1']) })
+    useCanvasStore.getState().addToSelection('r1')
+    expect(useCanvasStore.getState().selectedIds.size).toBe(1)
   })
 })
 
 describe('clearSelection', () => {
   beforeEach(resetStore)
 
-  it('resets selectedId to null', () => {
-    useCanvasStore.setState({ selectedId: 'r1' })
+  it('resets selectedIds to an empty set', () => {
+    useCanvasStore.setState({ selectedIds: new Set(['r1', 'e1']) })
     useCanvasStore.getState().clearSelection()
-    expect(useCanvasStore.getState().selectedId).toBeNull()
+    expect(useCanvasStore.getState().selectedIds.size).toBe(0)
   })
 })
 
@@ -244,6 +289,29 @@ describe('getElementById', () => {
 })
 
 // ---------------------------------------------------------------------------
+// moveElementTo
+// ---------------------------------------------------------------------------
+
+describe('moveElementTo', () => {
+  beforeEach(resetStore)
+
+  it('moves an element to a specific index in z-order', () => {
+    useCanvasStore.getState().addElement(createRectElement({ id: 'a' }))
+    useCanvasStore.getState().addElement(createEllipseElement({ id: 'b' }))
+    useCanvasStore.getState().addElement(createRectElement({ id: 'c' }))
+    useCanvasStore.getState().moveElementTo('a', 2)
+    const ids = useCanvasStore.getState().elements.map((el) => el.id)
+    expect(ids).toEqual(['b', 'c', 'a'])
+  })
+
+  it('is a no-op for unknown id', () => {
+    useCanvasStore.getState().addElement(createRectElement({ id: 'a' }))
+    useCanvasStore.getState().moveElementTo('unknown', 0)
+    expect(useCanvasStore.getState().elements).toHaveLength(1)
+  })
+})
+
+// ---------------------------------------------------------------------------
 // clearCanvas
 // ---------------------------------------------------------------------------
 
@@ -257,10 +325,10 @@ describe('clearCanvas', () => {
     expect(useCanvasStore.getState().elements).toHaveLength(0)
   })
 
-  it('resets selectedId', () => {
-    useCanvasStore.setState({ selectedId: 'r1' })
+  it('resets selectedIds', () => {
+    useCanvasStore.setState({ selectedIds: new Set(['r1']) })
     useCanvasStore.getState().clearCanvas()
-    expect(useCanvasStore.getState().selectedId).toBeNull()
+    expect(useCanvasStore.getState().selectedIds.size).toBe(0)
   })
 })
 

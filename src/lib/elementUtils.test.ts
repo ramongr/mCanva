@@ -6,6 +6,7 @@ import {
   bringToFront,
   sendToBack,
   findElement,
+  moveElementTo,
 } from './elementUtils'
 import { createRectElement, createEllipseElement, createLineElement } from './shapes'
 import type { WireframeElement } from '@/types/shapes'
@@ -214,5 +215,59 @@ describe('findElement', () => {
 
   it('returns undefined for an empty list', () => {
     expect(findElement([], 'a')).toBeUndefined()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// moveElementTo
+// ---------------------------------------------------------------------------
+
+describe('moveElementTo', () => {
+  it('moves element from index 0 to index 2 (end)', () => {
+    const list = makeList() // [a, b, c]
+    const result = moveElementTo(list, 'a', 2)
+    expect(result.map((el) => el.id)).toEqual(['b', 'c', 'a'])
+  })
+
+  it('moves element from index 2 to index 0 (beginning)', () => {
+    const list = makeList() // [a, b, c]
+    const result = moveElementTo(list, 'c', 0)
+    expect(result.map((el) => el.id)).toEqual(['c', 'a', 'b'])
+  })
+
+  it('moves element from index 2 to index 1 (middle)', () => {
+    const list = makeList() // [a, b, c]
+    const result = moveElementTo(list, 'c', 1)
+    expect(result.map((el) => el.id)).toEqual(['a', 'c', 'b'])
+  })
+
+  it('is a no-op when element is already at the target index', () => {
+    const list = makeList() // [a, b, c]
+    const result = moveElementTo(list, 'b', 1)
+    expect(result).toBe(list) // same reference
+  })
+
+  it('is a no-op when id is not found', () => {
+    const list = makeList()
+    const result = moveElementTo(list, 'unknown', 0)
+    expect(result).toBe(list)
+  })
+
+  it('clamps negative target index to 0', () => {
+    const list = makeList() // [a, b, c]
+    const result = moveElementTo(list, 'c', -5)
+    expect(result.map((el) => el.id)).toEqual(['c', 'a', 'b'])
+  })
+
+  it('clamps out-of-range target index to last position', () => {
+    const list = makeList() // [a, b, c]
+    const result = moveElementTo(list, 'a', 100)
+    expect(result.map((el) => el.id)).toEqual(['b', 'c', 'a'])
+  })
+
+  it('does not mutate the original array', () => {
+    const list = makeList()
+    moveElementTo(list, 'a', 2)
+    expect(list.map((el) => el.id)).toEqual(['a', 'b', 'c'])
   })
 })

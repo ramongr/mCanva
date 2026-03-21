@@ -8,6 +8,7 @@ import {
   bringToFront,
   sendToBack,
   findElement,
+  moveElementTo as moveElementToUtil,
 } from '@/lib/elementUtils'
 
 // ---------------------------------------------------------------------------
@@ -17,8 +18,8 @@ import {
 export interface CanvasState {
   /** All elements on the canvas, ordered bottom-to-top (last = top) */
   elements: WireframeElement[]
-  /** Id of the currently selected element, or null */
-  selectedId: string | null
+  /** Ids of the currently selected elements */
+  selectedIds: Set<string>
   /** The active tool — which shape will be placed on the next canvas click */
   activeTool: ShapeType | null
 }
@@ -36,8 +37,12 @@ export interface CanvasActions {
   updateElement: (update: ElementUpdate) => void
   /** Remove an element by id */
   removeElement: (id: string) => void
-  /** Select an element by id */
-  selectElement: (id: string | null) => void
+  /** Replace the entire selection with the given set of ids */
+  selectElements: (ids: Set<string>) => void
+  /** Toggle a single element in/out of the selection */
+  toggleElementSelection: (id: string) => void
+  /** Add a single element to the selection without clearing others */
+  addToSelection: (id: string) => void
   /** Clear the current selection */
   clearSelection: () => void
   /** Set the active tool */
@@ -46,6 +51,8 @@ export interface CanvasActions {
   bringToFront: (id: string) => void
   /** Move element to bottom of z-order */
   sendToBack: (id: string) => void
+  /** Move element to a specific z-order index */
+  moveElementTo: (id: string, targetIndex: number) => void
   /** Look up an element by id (read-only convenience) */
   getElementById: (id: string) => WireframeElement | undefined
   /** Remove all elements and reset selection */
@@ -87,7 +94,7 @@ export type CanvasStore = CanvasState & CanvasActions
 export const useCanvasStore = create<CanvasStore>((set, get) => ({
   // --- initial state ---
   elements: [],
-  selectedId: null,
+  selectedIds: new Set<string>(),
   activeTool: null,
 
   // --- actions ---
@@ -98,7 +105,7 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
     const element = createElement(type, { x, y })
     set((s) => ({
       elements: addElement(s.elements, element),
-      selectedId: element.id,
+      selectedIds: new Set([element.id]),
       activeTool: null,
     }))
   },
@@ -127,14 +134,36 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
   },
 
   removeElement: (id) =>
-    set((s) => ({
-      elements: removeElement(s.elements, id),
-      selectedId: s.selectedId === id ? null : s.selectedId,
-    })),
+    set((s) => {
+      const next = new Set(s.selectedIds)
+      next.delete(id)
+      return {
+        elements: removeElement(s.elements, id),
+        selectedIds: next,
+      }
+    }),
 
-  selectElement: (id) => set({ selectedId: id }),
+  selectElements: (ids) => set({ selectedIds: new Set(ids) }),
 
-  clearSelection: () => set({ selectedId: null }),
+  toggleElementSelection: (id) =>
+    set((s) => {
+      const next = new Set(s.selectedIds)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return { selectedIds: next }
+    }),
+
+  addToSelection: (id) =>
+    set((s) => {
+      const next = new Set(s.selectedIds)
+      next.add(id)
+      return { selectedIds: next }
+    }),
+
+  clearSelection: () => set({ selectedIds: new Set() }),
 
   setActiveTool: (tool) => set({ activeTool: tool }),
 
@@ -144,9 +173,12 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
   sendToBack: (id) =>
     set((s) => ({ elements: sendToBack(s.elements, id) })),
 
+  moveElementTo: (id, targetIndex) =>
+    set((s) => ({ elements: moveElementToUtil(s.elements, id, targetIndex) })),
+
   getElementById: (id) => findElement(get().elements, id),
 
-  clearCanvas: () => set({ elements: [], selectedId: null }),
+  clearCanvas: () => set({ elements: [], selectedIds: new Set() }),
 
   updateArrowConnections: (movedShapeId) =>
     set((s) => {
