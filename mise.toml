@@ -1,3 +1,4 @@
 [tools]
-node = "latest"
+npm= "11.12.0"
+node = "25.8.1"
 opencode = "latest"
