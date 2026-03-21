@@ -244,9 +244,41 @@ export function Canvas({ width, height }: CanvasProps) {
     [isArrowTool, findNearestAnchor],
   )
 
-  const handleChange = (id: string, update: Record<string, unknown>) => {
-    updateElement({ id, ...update })
-  }
+  const handleChange = useCallback(
+    (id: string, update: Record<string, unknown>) => {
+      updateElement({ id, ...update })
+
+      // Multi-selection drag: propagate the x/y delta to all other selected elements.
+      // We only act when a position update comes in AND more than one element is selected.
+      if (
+        selectedIds.size > 1 &&
+        selectedIds.has(id) &&
+        ('x' in update || 'y' in update)
+      ) {
+        // Find the element's previous position to compute the delta
+        const el = elements.find((e) => e.id === id)
+        if (!el) return
+        const prevX = ('x' in el ? (el as { x: number }).x : 0)
+        const prevY = ('y' in el ? (el as { y: number }).y : 0)
+        const newX = 'x' in update ? (update.x as number) : prevX
+        const newY = 'y' in update ? (update.y as number) : prevY
+        const dx = newX - prevX
+        const dy = newY - prevY
+
+        for (const otherId of selectedIds) {
+          if (otherId === id) continue
+          const other = elements.find((e) => e.id === otherId)
+          if (!other) continue
+          // Arrows don't have a simple x/y position — skip them for group drag
+          if (other.type === 'arrow') continue
+          const otherX = ('x' in other ? (other as { x: number }).x : 0)
+          const otherY = ('y' in other ? (other as { y: number }).y : 0)
+          updateElement({ id: otherId, x: otherX + dx, y: otherY + dy })
+        }
+      }
+    },
+    [updateElement, selectedIds, elements],
+  )
 
   const handleDragMove = useCallback(
     (id: string, x: number, y: number) => {
@@ -261,8 +293,30 @@ export function Canvas({ width, height }: CanvasProps) {
 
       // For shapes: live-update connected arrow positions without committing shape x/y
       liveUpdateArrowConnections(id, { x, y })
+
+      // Multi-selection drag: visually move all other selected non-arrow elements
+      // by the same delta so they appear to move together during the drag.
+      if (selectedIds.size > 1 && selectedIds.has(id)) {
+        const stage = stageRef.current
+        if (!stage) return
+        const elX = ('x' in el ? (el as { x: number }).x : 0)
+        const elY = ('y' in el ? (el as { y: number }).y : 0)
+        const dx = x - elX
+        const dy = y - elY
+
+        for (const otherId of selectedIds) {
+          if (otherId === id) continue
+          const other = elements.find((e) => e.id === otherId)
+          if (!other || other.type === 'arrow') continue
+          const node = stage.findOne(`#${otherId}`)
+          if (!node) continue
+          const otherEl = other as { x: number; y: number }
+          node.position({ x: otherEl.x + dx, y: otherEl.y + dy })
+          liveUpdateArrowConnections(otherId, { x: otherEl.x + dx, y: otherEl.y + dy })
+        }
+      }
     },
-    [elements, liveUpdateArrowConnections],
+    [elements, selectedIds, liveUpdateArrowConnections],
   )
 
   const handleTransformEnd = (id: string, attrs: TransformAttrs) => {

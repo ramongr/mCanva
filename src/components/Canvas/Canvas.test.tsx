@@ -991,4 +991,81 @@ describe('Canvas', () => {
     // The important thing is no marquee selection overrides a shape drag
     expect(useCanvasStore.getState().selectedIds.size).toBe(0)
   })
+
+  // ---------------------------------------------------------------------------
+  // Multi-selection drag — move all selected elements together
+  // ---------------------------------------------------------------------------
+
+  it('dragging one element in a multi-selection moves all selected elements by the same delta', () => {
+    useCanvasStore.getState().addElement(createRectElement({ id: 'r1', x: 0, y: 0 }))
+    useCanvasStore.getState().addElement(createRectElement({ id: 'r2', x: 100, y: 100 }))
+    useCanvasStore.setState({ selectedIds: new Set(['r1', 'r2']) })
+    const { stage } = renderCanvas()
+
+    // Drag r1 from (0,0) to (50, 60)
+    const group1 = stage.findOne('#r1') as Konva.Group
+    act(() => {
+      group1.position({ x: 50, y: 60 })
+      group1.fire('dragend')
+    })
+
+    const els = useCanvasStore.getState().elements
+    const el1 = els.find((e) => e.id === 'r1')!
+    const el2 = els.find((e) => e.id === 'r2')!
+
+    // r1 moved to (50, 60) — delta is (+50, +60)
+    expect(el1.x).toBe(50)
+    expect(el1.y).toBe(60)
+    // r2 should also move by (+50, +60) — from (100, 100) to (150, 160)
+    expect(el2.x).toBe(150)
+    expect(el2.y).toBe(160)
+  })
+
+  it('dragging an unselected element does not move other selected elements', () => {
+    useCanvasStore.getState().addElement(createRectElement({ id: 'r1', x: 0, y: 0 }))
+    useCanvasStore.getState().addElement(createRectElement({ id: 'r2', x: 100, y: 100 }))
+    // Only r2 is selected; dragging r1 (unselected)
+    useCanvasStore.setState({ selectedIds: new Set(['r2']) })
+    const { stage } = renderCanvas()
+
+    const group1 = stage.findOne('#r1') as Konva.Group
+    act(() => {
+      group1.position({ x: 50, y: 60 })
+      group1.fire('dragend')
+    })
+
+    const els = useCanvasStore.getState().elements
+    const el1 = els.find((e) => e.id === 'r1')!
+    const el2 = els.find((e) => e.id === 'r2')!
+
+    // r1 moved normally
+    expect(el1.x).toBe(50)
+    expect(el1.y).toBe(60)
+    // r2 is selected but was NOT dragged — it stays at (100, 100)
+    expect(el2.x).toBe(100)
+    expect(el2.y).toBe(100)
+  })
+
+  it('dragging a single selected element moves only that element', () => {
+    useCanvasStore.getState().addElement(createRectElement({ id: 'r1', x: 0, y: 0 }))
+    useCanvasStore.getState().addElement(createRectElement({ id: 'r2', x: 100, y: 100 }))
+    useCanvasStore.setState({ selectedIds: new Set(['r1']) })
+    const { stage } = renderCanvas()
+
+    const group1 = stage.findOne('#r1') as Konva.Group
+    act(() => {
+      group1.position({ x: 50, y: 60 })
+      group1.fire('dragend')
+    })
+
+    const els = useCanvasStore.getState().elements
+    const el1 = els.find((e) => e.id === 'r1')!
+    const el2 = els.find((e) => e.id === 'r2')!
+
+    expect(el1.x).toBe(50)
+    expect(el1.y).toBe(60)
+    // r2 is not selected — stays put
+    expect(el2.x).toBe(100)
+    expect(el2.y).toBe(100)
+  })
 })
