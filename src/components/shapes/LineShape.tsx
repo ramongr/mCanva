@@ -5,7 +5,7 @@ import type { KonvaPointerEvent, KonvaDragEvent } from '@/types/konva'
 export interface LineShapeProps {
   element: LineElement
   isSelected: boolean
-  onSelect: (id: string) => void
+  onSelect: (id: string, addToSelection: boolean) => void
   onChange: (update: Partial<Omit<LineElement, 'id' | 'type'>>) => void
 }
 
@@ -15,7 +15,7 @@ const SELECTION_EXTRA_WIDTH = 4
 export function LineShape({ element, isSelected, onSelect, onChange }: LineShapeProps) {
   const handleClick = (e: KonvaPointerEvent) => {
     e.cancelBubble = true
-    onSelect(element.id)
+    onSelect(element.id, e.evt?.shiftKey ?? false)
   }
 
   const handleDragEnd = (e: KonvaDragEvent) => {

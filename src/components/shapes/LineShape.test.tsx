@@ -133,7 +133,13 @@ describe('LineShape', () => {
   it('calls onSelect with element id on click', () => {
     const { group, onSelect, element } = setup()
     group.fire('click', { cancelBubble: false })
-    expect(onSelect).toHaveBeenCalledWith(element.id)
+    expect(onSelect).toHaveBeenCalledWith(element.id, false)
+  })
+
+  it('calls onSelect with addToSelection=true on shift+click', () => {
+    const { group, onSelect, element } = setup()
+    group.fire('click', { cancelBubble: false, evt: { shiftKey: true } })
+    expect(onSelect).toHaveBeenCalledWith(element.id, true)
   })
 
   it('calls onChange with new position on dragend', () => {

@@ -103,6 +103,30 @@ describe('Canvas', () => {
     expect(useCanvasStore.getState().selectedIds.has('r1')).toBe(true)
   })
 
+  it('shift+click adds a second element to the selection', () => {
+    useCanvasStore.getState().addElement(createRectElement({ id: 'r1' }))
+    useCanvasStore.getState().addElement(createRectElement({ id: 'r2' }))
+    useCanvasStore.setState({ selectedIds: new Set(['r1']) })
+    const { stage } = renderCanvas()
+    const group2 = stage.findOne('#r2') as Konva.Group
+    act(() => { group2.fire('click', { cancelBubble: false, evt: { shiftKey: true } }) })
+    const ids = useCanvasStore.getState().selectedIds
+    expect(ids.has('r1')).toBe(true)
+    expect(ids.has('r2')).toBe(true)
+  })
+
+  it('shift+click on already-selected element deselects it', () => {
+    useCanvasStore.getState().addElement(createRectElement({ id: 'r1' }))
+    useCanvasStore.getState().addElement(createRectElement({ id: 'r2' }))
+    useCanvasStore.setState({ selectedIds: new Set(['r1', 'r2']) })
+    const { stage } = renderCanvas()
+    const group1 = stage.findOne('#r1') as Konva.Group
+    act(() => { group1.fire('click', { cancelBubble: false, evt: { shiftKey: true } }) })
+    const ids = useCanvasStore.getState().selectedIds
+    expect(ids.has('r1')).toBe(false)
+    expect(ids.has('r2')).toBe(true)
+  })
+
   it('updates element position in the store after drag', () => {
     useCanvasStore.getState().addElement(createRectElement({ id: 'r1', x: 0, y: 0 }))
     const { stage } = renderCanvas()

@@ -68,7 +68,7 @@ describe('ShapeRenderer', () => {
       const { stage, onSelect } = setup(el)
       const group = stage.findOne('#r5') as Konva.Group
       group.fire('click', { cancelBubble: false })
-      expect(onSelect).toHaveBeenCalledWith('r5')
+      expect(onSelect).toHaveBeenCalledWith('r5', false)
     })
   })
 

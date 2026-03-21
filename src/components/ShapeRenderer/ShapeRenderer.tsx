@@ -15,7 +15,7 @@ import type { ArrowDragEndPayload } from '@/components/shapes/ArrowShape'
 export interface ShapeRendererProps {
   element: WireframeElement
   isSelected: boolean
-  onSelect: (id: string) => void
+  onSelect: (id: string, addToSelection: boolean) => void
   onChange: (id: string, update: Partial<Omit<WireframeElement, 'id' | 'type'>>) => void
   onEditLabel?: (id: string) => void
   onEndpointClick?: (arrowId: string, endpoint: 'from' | 'to') => void

@@ -35,7 +35,7 @@ export interface ArrowDragEndPayload {
 export interface ArrowShapeProps {
   element: ArrowElement
   isSelected: boolean
-  onSelect: (id: string) => void
+  onSelect: (id: string, addToSelection: boolean) => void
   onChange: (update: Partial<Omit<ArrowElement, 'id' | 'type'>>) => void
   /** Called when the user clicks an endpoint handle */
   onEndpointClick?: (arrowId: string, endpoint: 'from' | 'to') => void
@@ -84,7 +84,7 @@ export function ArrowShape({
 
   const handleClick = (e: KonvaPointerEvent) => {
     e.cancelBubble = true
-    onSelect(element.id)
+    onSelect(element.id, e.evt?.shiftKey ?? false)
   }
 
   // ---------------------------------------------------------------------------

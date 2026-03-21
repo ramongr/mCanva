@@ -5,7 +5,7 @@ import type { KonvaPointerEvent, KonvaDragEvent } from '@/types/konva'
 export interface EllipseShapeProps {
   element: EllipseElement
   isSelected: boolean
-  onSelect: (id: string) => void
+  onSelect: (id: string, addToSelection: boolean) => void
   onChange: (update: Partial<Omit<EllipseElement, 'id' | 'type'>>) => void
   onEditLabel?: (id: string) => void
   onDragMove?: (id: string, x: number, y: number) => void
@@ -17,7 +17,7 @@ const SELECTION_PADDING = 3
 export function EllipseShape({ element, isSelected, onSelect, onChange, onEditLabel, onDragMove }: EllipseShapeProps) {
   const handleClick = (e: KonvaPointerEvent) => {
     e.cancelBubble = true
-    onSelect(element.id)
+    onSelect(element.id, e.evt?.shiftKey ?? false)
   }
 
   const handleDblClick = (e: KonvaPointerEvent) => {

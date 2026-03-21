@@ -57,6 +57,7 @@ export function Canvas({ width, height }: CanvasProps) {
   const addElement = useCanvasStore((s) => s.addElement)
   const updateElement = useCanvasStore((s) => s.updateElement)
   const selectElements = useCanvasStore((s) => s.selectElements)
+  const toggleElementSelection = useCanvasStore((s) => s.toggleElementSelection)
   const clearSelection = useCanvasStore((s) => s.clearSelection)
   const setActiveTool = useCanvasStore((s) => s.setActiveTool)
   const reconnectArrowEndpoint = useCanvasStore((s) => s.reconnectArrowEndpoint)
@@ -456,7 +457,11 @@ export function Canvas({ width, height }: CanvasProps) {
               key={element.id}
               element={element}
               isSelected={selectedIds.has(element.id)}
-              onSelect={(id) => selectElements(new Set([id]))}
+              onSelect={(id, addToSelection) =>
+                addToSelection
+                  ? toggleElementSelection(id)
+                  : selectElements(new Set([id]))
+              }
               onChange={handleChange}
               onEditLabel={handleEditLabel}
               onEndpointClick={handleEndpointClick}
