@@ -2,10 +2,14 @@ import { useEffect, useRef, useState } from 'react'
 import { Canvas } from '@/components/Canvas/Canvas'
 import { Toolbar } from '@/components/Toolbar/Toolbar'
 import { useCanvasStore } from '@/store/canvasStore'
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 
 export default function App() {
   const setActiveTool = useCanvasStore((s) => s.setActiveTool)
   const activeTool = useCanvasStore((s) => s.activeTool)
+
+  // Global keyboard shortcuts — tool activation, delete, escape, ctrl+d duplicate
+  useKeyboardShortcuts({})
 
   const canvasContainerRef = useRef<HTMLDivElement>(null)
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 })
