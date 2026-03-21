@@ -20,6 +20,8 @@ import { useCanvasEvents } from '@/hooks/useCanvasEvents'
 import { useArrowDrawing } from '@/hooks/useArrowDrawing'
 import { useArrowReconnect } from '@/hooks/useArrowReconnect'
 import { getBoundingBox, getAnchorPoint, intersectsBoundingBox } from '@/lib/shapes'
+import { GridLayer } from '@/components/GridLayer/GridLayer'
+import { snapToGrid } from '@/lib/gridUtils'
 import type { TransformAttrs } from '@/components/SelectionTransformer/SelectionTransformer'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import type { ArrowConnection } from '@/types/shapes'
@@ -160,7 +162,7 @@ export function Canvas({ width, height }: CanvasProps) {
 
   const { handleStageClick } = useCanvasEvents({
     activeTool: isArrowTool ? null : activeTool, // suppress default click handler for arrow tool
-    onAddElement: addElementAt,
+    onAddElement: (type, x, y) => addElementAt(type, snapToGrid(x), snapToGrid(y)),
     onClearSelection: clearSelection,
   })
 
@@ -216,7 +218,10 @@ export function Canvas({ width, height }: CanvasProps) {
       if (isArrowTool) {
         if (!pos) return
         const { x, y, anchorHit } = resolvePointerWithSnap(pos)
-        arrowDrawingRef.current.handleCanvasClick(x, y, anchorHit)
+        // Snap to grid when not snapping to an anchor
+        const snappedX = anchorHit ? x : snapToGrid(x)
+        const snappedY = anchorHit ? y : snapToGrid(y)
+        arrowDrawingRef.current.handleCanvasClick(snappedX, snappedY, anchorHit)
         return
       }
 
@@ -246,22 +251,26 @@ export function Canvas({ width, height }: CanvasProps) {
 
   const handleChange = useCallback(
     (id: string, update: Record<string, unknown>) => {
-      updateElement({ id, ...update })
+      // Snap x/y to the grid on drag-end (position updates only)
+      const snapped = { ...update }
+      if ('x' in snapped) snapped.x = snapToGrid(snapped.x as number)
+      if ('y' in snapped) snapped.y = snapToGrid(snapped.y as number)
+      updateElement({ id, ...snapped })
 
       // Multi-selection drag: propagate the x/y delta to all other selected elements.
       // We only act when a position update comes in AND more than one element is selected.
       if (
         selectedIds.size > 1 &&
         selectedIds.has(id) &&
-        ('x' in update || 'y' in update)
+        ('x' in snapped || 'y' in snapped)
       ) {
         // Find the element's previous position to compute the delta
         const el = elements.find((e) => e.id === id)
         if (!el) return
         const prevX = ('x' in el ? (el as { x: number }).x : 0)
         const prevY = ('y' in el ? (el as { y: number }).y : 0)
-        const newX = 'x' in update ? (update.x as number) : prevX
-        const newY = 'y' in update ? (update.y as number) : prevY
+        const newX = 'x' in snapped ? (snapped.x as number) : prevX
+        const newY = 'y' in snapped ? (snapped.y as number) : prevY
         const dx = newX - prevX
         const dy = newY - prevY
 
@@ -273,7 +282,7 @@ export function Canvas({ width, height }: CanvasProps) {
           if (other.type === 'arrow') continue
           const otherX = ('x' in other ? (other as { x: number }).x : 0)
           const otherY = ('y' in other ? (other as { y: number }).y : 0)
-          updateElement({ id: otherId, x: otherX + dx, y: otherY + dy })
+          updateElement({ id: otherId, x: snapToGrid(otherX + dx), y: snapToGrid(otherY + dy) })
         }
       }
     },
@@ -587,6 +596,9 @@ export function Canvas({ width, height }: CanvasProps) {
         onMouseMove={handleStageMouseMoveWithMarquee as (e: KonvaEventObject<MouseEvent>) => void}
         onMouseUp={handleStageMouseUp as (e: KonvaEventObject<MouseEvent>) => void}
       >
+        {/* Grid layer — always visible, sits behind all other layers */}
+        <GridLayer width={width} height={height} />
+
         {/* Shapes layer — non-interactive when anchor overlay is shown so
             clicks pass through to the stage and into the drawing state machine */}
         <Layer listening={!blockShapesLayer}>

@@ -132,11 +132,11 @@ describe('Canvas', () => {
     const { stage } = renderCanvas()
     const group = stage.findOne('#r1') as Konva.Group
     act(() => {
-      group.position({ x: 75, y: 80 })
+      group.position({ x: 70, y: 80 })
       group.fire('dragend')
     })
     const el = useCanvasStore.getState().elements[0]
-    expect(el.x).toBe(75)
+    expect(el.x).toBe(70)
     expect(el.y).toBe(80)
   })
 
@@ -260,7 +260,7 @@ describe('Canvas', () => {
 
     // The shapes layer should have listening=false when arrow tool is active
     const layers = stage.find('Layer') as Konva.Layer[]
-    const shapesLayer = layers[0]
+    const shapesLayer = layers[1]
     expect(shapesLayer.listening()).toBe(false)
   })
 
@@ -274,7 +274,7 @@ describe('Canvas', () => {
     })
 
     const layers = stage.find('Layer') as Konva.Layer[]
-    const shapesLayer = layers[0]
+    const shapesLayer = layers[1]
     expect(shapesLayer.listening()).toBe(true)
   })
 
@@ -320,7 +320,7 @@ describe('Canvas', () => {
     // No other shapes on canvas, so just verify the overlay layer appeared by
     // checking the shapes layer is now non-interactive
     const layers = stage.find('Layer') as Konva.Layer[]
-    expect(layers[0].listening()).toBe(false)
+    expect(layers[1].listening()).toBe(false)
   })
 
   it('connects a free endpoint to a shape anchor without disconnecting the other side', () => {
@@ -450,7 +450,7 @@ describe('Canvas', () => {
 
     // Shapes layer must remain interactive (no anchor overlay shown)
     const layers = stage.find('Layer') as Konva.Layer[]
-    expect(layers[0].listening()).toBe(true)
+    expect(layers[1].listening()).toBe(true)
   })
 
   it('clicking a free endpoint handle enters reconnect mode (anchor overlay appears)', () => {
@@ -466,7 +466,7 @@ describe('Canvas', () => {
 
     // Anchor overlay layer should be active (shapes layer non-interactive)
     const layers = stage.find('Layer') as Konva.Layer[]
-    expect(layers[0].listening()).toBe(false)
+    expect(layers[1].listening()).toBe(false)
   })
 
   it('clicking empty canvas during reconnect (free endpoint flow) disconnects and places free', () => {
@@ -741,7 +741,7 @@ describe('Canvas', () => {
 
     // Shapes layer must remain interactive — user should still be able to click shapes
     const layers = stage.find('Layer') as Konva.Layer[]
-    expect(layers[0].listening()).toBe(true)
+    expect(layers[1].listening()).toBe(true)
   })
 
   it('clicking an anchor hint directly connects the free endpoint without entering reconnect mode', () => {
