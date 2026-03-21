@@ -9,8 +9,8 @@ import { Transformer } from 'react-konva'
 import type Konva from 'konva'
 
 export interface SelectionTransformerProps {
-  /** Id of the selected element, or null when nothing is selected */
-  selectedId: string | null
+  /** Ids of the selected elements (empty set = nothing selected) */
+  selectedIds: Set<string>
   /** Callback fired after the user finishes a transform (resize/rotate) */
   onTransformEnd: (id: string, attrs: TransformAttrs) => void
 }
@@ -27,14 +27,14 @@ export interface TransformAttrs {
   scaleY: number
 }
 
-export function SelectionTransformer({ selectedId, onTransformEnd }: SelectionTransformerProps) {
+export function SelectionTransformer({ selectedIds, onTransformEnd }: SelectionTransformerProps) {
   const transformerRef = useRef<Konva.Transformer>(null)
 
   useEffect(() => {
     const transformer = transformerRef.current
     if (!transformer) return
 
-    if (!selectedId) {
+    if (selectedIds.size === 0) {
       transformer.nodes([])
       transformer.getLayer()?.batchDraw()
       return
@@ -43,19 +43,22 @@ export function SelectionTransformer({ selectedId, onTransformEnd }: SelectionTr
     const stage = transformer.getStage()
     if (!stage) return
 
-    const node = stage.findOne(`#${selectedId}`) as Konva.Node | undefined
-    // Arrows use their own endpoint handles for editing — no resize transformer
-    if (node && node.name() !== 'arrow') {
-      transformer.nodes([node])
-    } else {
-      transformer.nodes([])
+    // Attach to all selected non-arrow nodes
+    const nodes: Konva.Node[] = []
+    for (const id of selectedIds) {
+      const node = stage.findOne(`#${id}`) as Konva.Node | undefined
+      // Arrows use their own endpoint handles for editing — no resize transformer
+      if (node && node.name() !== 'arrow') {
+        nodes.push(node)
+      }
     }
+    transformer.nodes(nodes)
     transformer.getLayer()?.batchDraw()
-  }, [selectedId])
+  }, [selectedIds])
 
   const handleTransformEnd = () => {
     const transformer = transformerRef.current
-    if (!transformer || !selectedId) return
+    if (!transformer || selectedIds.size === 0) return
 
     const node = transformer.nodes()[0] as Konva.Node | undefined
     if (!node) return
@@ -98,7 +101,7 @@ export function SelectionTransformer({ selectedId, onTransformEnd }: SelectionTr
       node.scaleY(1)
     }
 
-    onTransformEnd(selectedId, attrs)
+    onTransformEnd(node.id(), attrs)
   }
 
   return (

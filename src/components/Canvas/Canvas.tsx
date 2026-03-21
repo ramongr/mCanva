@@ -51,12 +51,12 @@ export function Canvas({ width, height }: CanvasProps) {
   const [editingLabelId, setEditingLabelId] = useState<string | null>(null)
 
   const elements = useCanvasStore((s) => s.elements)
-  const selectedId = useCanvasStore((s) => s.selectedId)
+  const selectedIds = useCanvasStore((s) => s.selectedIds)
   const activeTool = useCanvasStore((s) => s.activeTool)
   const addElementAt = useCanvasStore((s) => s.addElementAt)
   const addElement = useCanvasStore((s) => s.addElement)
   const updateElement = useCanvasStore((s) => s.updateElement)
-  const selectElement = useCanvasStore((s) => s.selectElement)
+  const selectElements = useCanvasStore((s) => s.selectElements)
   const clearSelection = useCanvasStore((s) => s.clearSelection)
   const setActiveTool = useCanvasStore((s) => s.setActiveTool)
   const reconnectArrowEndpoint = useCanvasStore((s) => s.reconnectArrowEndpoint)
@@ -80,8 +80,10 @@ export function Canvas({ width, height }: CanvasProps) {
   const isReconnecting = arrowReconnect.phase === 'reconnecting'
 
   // A partially-connected arrow is selected (has at least one free endpoint)
-  const selectedArrow = selectedId
-    ? elements.find((el) => el.id === selectedId && el.type === 'arrow')
+  // Only applies when exactly one element is selected and it is an arrow
+  const singleSelectedId = selectedIds.size === 1 ? [...selectedIds][0] : null
+  const selectedArrow = singleSelectedId
+    ? elements.find((el) => el.id === singleSelectedId && el.type === 'arrow')
     : null
   const isPartialArrowSelected =
     selectedArrow?.type === 'arrow' &&
@@ -342,8 +344,11 @@ export function Canvas({ width, height }: CanvasProps) {
     }
   }
 
-  // Compute toolbar position from the selected element's bounding box
-  const selectedElement = selectedId ? elements.find((el) => el.id === selectedId) : null
+  // Compute toolbar position — show when at least 1 shape is selected
+  // When exactly 1 shape: show that shape's toolbar position
+  // When 2+ shapes: show the first selected shape's toolbar position (shared properties mode)
+  const firstSelectedId = selectedIds.size > 0 ? [...selectedIds][0] : null
+  const selectedElement = firstSelectedId ? elements.find((el) => el.id === firstSelectedId) : null
   let toolbarPosition: { x: number; y: number } | null = null
   if (selectedElement) {
     const bb = getBoundingBox(selectedElement)
@@ -450,8 +455,8 @@ export function Canvas({ width, height }: CanvasProps) {
             <ShapeRenderer
               key={element.id}
               element={element}
-              isSelected={element.id === selectedId}
-              onSelect={selectElement}
+              isSelected={selectedIds.has(element.id)}
+              onSelect={(id) => selectElements(new Set([id]))}
               onChange={handleChange}
               onEditLabel={handleEditLabel}
               onEndpointClick={handleEndpointClick}
@@ -461,7 +466,7 @@ export function Canvas({ width, height }: CanvasProps) {
             />
           ))}
           <SelectionTransformer
-            selectedId={selectedId}
+            selectedIds={selectedIds}
             onTransformEnd={handleTransformEnd}
           />
         </Layer>

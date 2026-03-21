@@ -6,7 +6,7 @@ import App from './App'
 import { useCanvasStore } from '@/store/canvasStore'
 
 function resetStore() {
-  useCanvasStore.setState({ elements: [], selectedId: null, activeTool: null })
+  useCanvasStore.setState({ elements: [], selectedIds: new Set(), activeTool: null })
 }
 
 describe('App', () => {

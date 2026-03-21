@@ -7,7 +7,7 @@ import { createRectElement, createEllipseElement, createArrowElement, getAnchorP
 import type { ArrowElement } from '@/types/shapes'
 
 function resetStore() {
-  useCanvasStore.setState({ elements: [], selectedId: null, activeTool: null })
+  useCanvasStore.setState({ elements: [], selectedIds: new Set(), activeTool: null })
 }
 
 /**
@@ -87,7 +87,7 @@ describe('Canvas', () => {
 
   it('attaches the Transformer to the selected element', () => {
     useCanvasStore.getState().addElement(createRectElement({ id: 'r1' }))
-    useCanvasStore.setState({ selectedId: 'r1' })
+    useCanvasStore.setState({ selectedIds: new Set(['r1']) })
     const { stage } = renderCanvas()
     const transformer = stage.findOne('Transformer') as Konva.Transformer
     expect(transformer.nodes()).toHaveLength(1)
@@ -100,7 +100,7 @@ describe('Canvas', () => {
     // Elements are now wrapped in Groups; the id is on the Group
     const group = stage.findOne('#r1') as Konva.Group
     act(() => { group.fire('click', { cancelBubble: false }) })
-    expect(useCanvasStore.getState().selectedId).toBe('r1')
+    expect(useCanvasStore.getState().selectedIds.has('r1')).toBe(true)
   })
 
   it('updates element position in the store after drag', () => {
@@ -124,7 +124,7 @@ describe('Canvas', () => {
 
   it('shows the floating toolbar when a shape is selected', () => {
     useCanvasStore.getState().addElement(createRectElement({ id: 'r1' }))
-    useCanvasStore.setState({ selectedId: 'r1' })
+    useCanvasStore.setState({ selectedIds: new Set(['r1']) })
     renderCanvas()
     expect(screen.getByTestId('floating-toolbar')).toBeInTheDocument()
   })
@@ -264,7 +264,7 @@ describe('Canvas', () => {
     act(() => { stage.fire('click', { target: stage }) })
 
     // Trigger a re-render by touching unrelated store state (simulates a mid-draw re-render)
-    act(() => { useCanvasStore.setState({ selectedId: null }) })
+    act(() => { useCanvasStore.setState({ selectedIds: new Set() }) })
 
     // Second click should still finalize the arrow — not silently drop it due to a stale closure
     stage.setPointersPositions({ x: 300, y: 300 })
@@ -284,7 +284,7 @@ describe('Canvas', () => {
     // Arrow with one free endpoint
     const arrow = createArrowElement(10, 10, 200, 200, { id: 'a1', from: null, to: null })
     useCanvasStore.getState().addElement(arrow)
-    useCanvasStore.setState({ selectedId: 'a1' })
+    useCanvasStore.setState({ selectedIds: new Set(['a1']) })
     const { stage } = renderCanvas()
 
     // Click the 'from' endpoint handle to enter reconnect mode
@@ -316,7 +316,7 @@ describe('Canvas', () => {
     useCanvasStore.getState().addElement(ellipse1)
     useCanvasStore.getState().addElement(ellipse2)
     useCanvasStore.getState().addElement(arrow)
-    useCanvasStore.setState({ selectedId: 'a1' })
+    useCanvasStore.setState({ selectedIds: new Set(['a1']) })
 
     const { stage } = renderCanvas()
 
@@ -352,7 +352,7 @@ describe('Canvas', () => {
     useCanvasStore.getState().addElement(ellipse1)
     useCanvasStore.getState().addElement(ellipse2)
     useCanvasStore.getState().addElement(arrow)
-    useCanvasStore.setState({ selectedId: 'a1' })
+    useCanvasStore.setState({ selectedIds: new Set(['a1']) })
 
     const { stage } = renderCanvas()
 
@@ -387,7 +387,7 @@ describe('Canvas', () => {
 
     useCanvasStore.getState().addElement(ellipse1)
     useCanvasStore.getState().addElement(arrow)
-    useCanvasStore.setState({ selectedId: 'a1' })
+    useCanvasStore.setState({ selectedIds: new Set(['a1']) })
 
     const { stage } = renderCanvas()
 
@@ -416,7 +416,7 @@ describe('Canvas', () => {
 
     useCanvasStore.getState().addElement(ellipse1)
     useCanvasStore.getState().addElement(arrow)
-    useCanvasStore.setState({ selectedId: 'a1' })
+    useCanvasStore.setState({ selectedIds: new Set(['a1']) })
 
     const { stage } = renderCanvas()
 
@@ -432,7 +432,7 @@ describe('Canvas', () => {
   it('clicking a free endpoint handle enters reconnect mode (anchor overlay appears)', () => {
     const arrow = createArrowElement(50, 50, 300, 100, { id: 'a1', from: null, to: null })
     useCanvasStore.getState().addElement(arrow)
-    useCanvasStore.setState({ selectedId: 'a1' })
+    useCanvasStore.setState({ selectedIds: new Set(['a1']) })
 
     const { stage } = renderCanvas()
 
@@ -457,7 +457,7 @@ describe('Canvas', () => {
 
     useCanvasStore.getState().addElement(ellipse1)
     useCanvasStore.getState().addElement(arrow)
-    useCanvasStore.setState({ selectedId: 'a1' })
+    useCanvasStore.setState({ selectedIds: new Set(['a1']) })
 
     const { stage } = renderCanvas()
 
@@ -495,7 +495,7 @@ describe('Canvas', () => {
 
     useCanvasStore.getState().addElement(ellipse)
     useCanvasStore.getState().addElement(arrow)
-    useCanvasStore.setState({ selectedId: 'a1' })
+    useCanvasStore.setState({ selectedIds: new Set(['a1']) })
 
     const { stage } = renderCanvas()
 
@@ -531,7 +531,7 @@ describe('Canvas', () => {
     useCanvasStore.getState().addElement(ellipse1)
     useCanvasStore.getState().addElement(ellipse2)
     useCanvasStore.getState().addElement(arrow)
-    useCanvasStore.setState({ selectedId: 'a1' })
+    useCanvasStore.setState({ selectedIds: new Set(['a1']) })
 
     const { stage } = renderCanvas()
 
@@ -657,7 +657,7 @@ describe('Canvas', () => {
 
     useCanvasStore.getState().addElement(ellipse)
     useCanvasStore.getState().addElement(arrow)
-    useCanvasStore.setState({ selectedId: 'a1' })
+    useCanvasStore.setState({ selectedIds: new Set(['a1']) })
 
     const { stage } = renderCanvas()
 
@@ -680,7 +680,7 @@ describe('Canvas', () => {
     useCanvasStore.getState().addElement(e1)
     useCanvasStore.getState().addElement(e2)
     useCanvasStore.getState().addElement(arrow)
-    useCanvasStore.setState({ selectedId: 'a1' })
+    useCanvasStore.setState({ selectedIds: new Set(['a1']) })
 
     const { stage } = renderCanvas()
 
@@ -692,7 +692,7 @@ describe('Canvas', () => {
   it('does NOT show anchor circles when a non-arrow element is selected', () => {
     const rect = createRectElement({ id: 'r1', x: 0, y: 0 })
     useCanvasStore.getState().addElement(rect)
-    useCanvasStore.setState({ selectedId: 'r1' })
+    useCanvasStore.setState({ selectedIds: new Set(['r1']) })
 
     const { stage } = renderCanvas()
 
@@ -711,7 +711,7 @@ describe('Canvas', () => {
 
     useCanvasStore.getState().addElement(ellipse)
     useCanvasStore.getState().addElement(arrow)
-    useCanvasStore.setState({ selectedId: 'a1' })
+    useCanvasStore.setState({ selectedIds: new Set(['a1']) })
 
     const { stage } = renderCanvas()
 
@@ -732,7 +732,7 @@ describe('Canvas', () => {
     useCanvasStore.getState().addElement(e1)
     useCanvasStore.getState().addElement(e2)
     useCanvasStore.getState().addElement(arrow)
-    useCanvasStore.setState({ selectedId: 'a1' })
+    useCanvasStore.setState({ selectedIds: new Set(['a1']) })
 
     const { stage } = renderCanvas()
 
@@ -765,7 +765,7 @@ describe('Canvas', () => {
     useCanvasStore.getState().addElement(e1)
     useCanvasStore.getState().addElement(e2)
     useCanvasStore.getState().addElement(arrow)
-    useCanvasStore.setState({ selectedId: 'a1' })
+    useCanvasStore.setState({ selectedIds: new Set(['a1']) })
 
     const { stage } = renderCanvas()
 
@@ -792,7 +792,7 @@ describe('Canvas', () => {
 
     useCanvasStore.getState().addElement(e1)
     useCanvasStore.getState().addElement(arrow)
-    useCanvasStore.setState({ selectedId: 'a1' })
+    useCanvasStore.setState({ selectedIds: new Set(['a1']) })
 
     const { stage } = renderCanvas()
 
@@ -825,7 +825,7 @@ describe('Canvas', () => {
 
     useCanvasStore.getState().addElement(e1)
     useCanvasStore.getState().addElement(arrow)
-    useCanvasStore.setState({ selectedId: 'a1' })
+    useCanvasStore.setState({ selectedIds: new Set(['a1']) })
 
     const { stage } = renderCanvas()
 
@@ -837,7 +837,7 @@ describe('Canvas', () => {
     // Click empty canvas — should deselect
     act(() => { stage.fire('click', { target: stage }) })
 
-    expect(useCanvasStore.getState().selectedId).toBeNull()
+    expect(useCanvasStore.getState().selectedIds.size).toBe(0)
 
     // After deselect, re-render and check anchors are gone
     const anchorsAfter = (stage.find('Circle') as Konva.Circle[])
@@ -857,7 +857,7 @@ describe('Canvas', () => {
     useCanvasStore.getState().addElement(e1)
     useCanvasStore.getState().addElement(e2)
     useCanvasStore.getState().addElement(arrow)
-    useCanvasStore.setState({ selectedId: 'a1' })
+    useCanvasStore.setState({ selectedIds: new Set(['a1']) })
 
     const { stage } = renderCanvas()
 
@@ -866,7 +866,7 @@ describe('Canvas', () => {
     act(() => { e2Group.fire('click', { cancelBubble: false }) })
 
     // Selection should switch to e2, not the arrow
-    expect(useCanvasStore.getState().selectedId).toBe('e2')
+    expect(useCanvasStore.getState().selectedIds.has('e2')).toBe(true)
 
     // Anchor circles should be gone (no longer a partial arrow selected)
     const anchorsAfter = (stage.find('Circle') as Konva.Circle[])
