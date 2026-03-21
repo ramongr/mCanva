@@ -19,7 +19,7 @@ import { AnchorPoints } from '@/components/AnchorPoints/AnchorPoints'
 import { useCanvasEvents } from '@/hooks/useCanvasEvents'
 import { useArrowDrawing } from '@/hooks/useArrowDrawing'
 import { useArrowReconnect } from '@/hooks/useArrowReconnect'
-import { getBoundingBox, getAnchorPoint } from '@/lib/shapes'
+import { getBoundingBox, getAnchorPoint, intersectsBoundingBox } from '@/lib/shapes'
 import type { TransformAttrs } from '@/components/SelectionTransformer/SelectionTransformer'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import type { ArrowConnection } from '@/types/shapes'
@@ -49,6 +49,20 @@ export function Canvas({ width, height }: CanvasProps) {
   const anchorCommittedRef = useRef(false)
 
   const [editingLabelId, setEditingLabelId] = useState<string | null>(null)
+
+  /**
+   * Marquee (rubber-band) selection state.
+   * Active while the user drags on empty canvas with no tool selected.
+   * The ref mirrors state so event handlers always read the latest value
+   * without needing to be recreated on every render.
+   */
+  const [marquee, setMarquee] = useState<{
+    startX: number
+    startY: number
+    currentX: number
+    currentY: number
+  } | null>(null)
+  const marqueeRef = useRef<typeof marquee>(null)
 
   const elements = useCanvasStore((s) => s.elements)
   const selectedIds = useCanvasStore((s) => s.selectedIds)
@@ -400,6 +414,74 @@ export function Canvas({ width, height }: CanvasProps) {
       : [x1, y1, s.previewPoint.x, s.previewPoint.y]
   })()
 
+  /**
+   * Marquee (rubber-band) selection handlers.
+   * Dragging on empty canvas (no tool, click target is the Stage itself)
+   * draws a dashed rectangle and selects all elements whose bounding boxes
+   * overlap it on mouse-up.
+   */
+  const handleStageMouseDown = useCallback(
+    (e: KonvaEventObject<MouseEvent>) => {
+      // Only start marquee when: no tool active, clicked on empty canvas (stage target),
+      // not in arrow draw/reconnect mode, and no modifier key is pressed
+      if (activeTool) return
+      if (isArrowTool || isReconnecting) return
+      if (e.target !== stageRef.current) return
+
+      const pos = stageRef.current?.getPointerPosition()
+      if (!pos) return
+
+      const m = { startX: pos.x, startY: pos.y, currentX: pos.x, currentY: pos.y }
+      marqueeRef.current = m
+      setMarquee(m)
+    },
+    [activeTool, isArrowTool, isReconnecting],
+  )
+
+  const handleStageMouseMoveWithMarquee = useCallback(
+    (e: KonvaEventObject<MouseEvent>) => {
+      // Update marquee rectangle if active (use ref for latest value)
+      if (marqueeRef.current) {
+        const pos = stageRef.current?.getPointerPosition()
+        if (pos) {
+          const m = { ...marqueeRef.current, currentX: pos.x, currentY: pos.y }
+          marqueeRef.current = m
+          setMarquee(m)
+        }
+        return
+      }
+      // Otherwise delegate to existing arrow/reconnect mouse-move handler
+      handleStageMouseMove(e)
+    },
+    [handleStageMouseMove],
+  )
+
+  const handleStageMouseUp = useCallback(
+    (_e: KonvaEventObject<MouseEvent>) => {
+      const m = marqueeRef.current
+      if (!m) return
+      const rect = {
+        x: m.startX,
+        y: m.startY,
+        width: m.currentX - m.startX,
+        height: m.currentY - m.startY,
+      }
+      marqueeRef.current = null
+      setMarquee(null)
+      // Only apply selection if the user actually dragged (not just clicked)
+      const MIN_DRAG = 4
+      if (Math.abs(rect.width) > MIN_DRAG || Math.abs(rect.height) > MIN_DRAG) {
+        const hit = elements.filter((el) => intersectsBoundingBox(el, rect))
+        if (hit.length > 0) {
+          selectElements(new Set(hit.map((el) => el.id)))
+        } else {
+          clearSelection()
+        }
+      }
+    },
+    [elements, selectElements, clearSelection],
+  )
+
   const handleEndpointClick = useCallback(
     (arrowId: string, endpoint: 'from' | 'to') => {
       const arrow = elements.find((el) => el.id === arrowId)
@@ -447,7 +529,9 @@ export function Canvas({ width, height }: CanvasProps) {
         width={width}
         height={height}
         onClick={handleStageClickWithArrow as (e: KonvaEventObject<MouseEvent>) => void}
-        onMouseMove={handleStageMouseMove as (e: KonvaEventObject<MouseEvent>) => void}
+        onMouseDown={handleStageMouseDown as (e: KonvaEventObject<MouseEvent>) => void}
+        onMouseMove={handleStageMouseMoveWithMarquee as (e: KonvaEventObject<MouseEvent>) => void}
+        onMouseUp={handleStageMouseUp as (e: KonvaEventObject<MouseEvent>) => void}
       >
         {/* Shapes layer — non-interactive when anchor overlay is shown so
             clicks pass through to the stage and into the drawing state machine */}
@@ -551,6 +635,24 @@ export function Canvas({ width, height }: CanvasProps) {
                 dash={[6, 3]}
               />
             )}
+          </Layer>
+        )}
+
+        {/* Marquee (rubber-band) selection rectangle */}
+        {marquee && (
+          <Layer listening={false}>
+            <KonvaRect
+              data-testid="marquee-rect"
+              x={Math.min(marquee.startX, marquee.currentX)}
+              y={Math.min(marquee.startY, marquee.currentY)}
+              width={Math.abs(marquee.currentX - marquee.startX)}
+              height={Math.abs(marquee.currentY - marquee.startY)}
+              fill="rgba(0, 120, 255, 0.08)"
+              stroke="#0078ff"
+              strokeWidth={1}
+              dash={[4, 3]}
+              listening={false}
+            />
           </Layer>
         )}
       </Stage>

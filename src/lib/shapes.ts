@@ -291,6 +291,32 @@ export function isPointInBoundingBox(
   return px >= bb.x && px <= bb.x + bb.width && py >= bb.y && py <= bb.y + bb.height
 }
 
+/**
+ * Returns true if the element's bounding box intersects (overlaps) with the
+ * given axis-aligned rectangle. Uses AABB overlap — any partial overlap counts.
+ *
+ * @param element - The canvas element to test
+ * @param rect - The selection rectangle { x, y, width, height } where width/height may be negative
+ */
+export function intersectsBoundingBox(
+  element: WireframeElement,
+  rect: { x: number; y: number; width: number; height: number },
+): boolean {
+  const bb = getBoundingBox(element)
+  // Normalise the selection rect so x/y is always the top-left corner
+  const rx = rect.width >= 0 ? rect.x : rect.x + rect.width
+  const ry = rect.height >= 0 ? rect.y : rect.y + rect.height
+  const rw = Math.abs(rect.width)
+  const rh = Math.abs(rect.height)
+  // AABB overlap test
+  return (
+    bb.x < rx + rw &&
+    bb.x + bb.width > rx &&
+    bb.y < ry + rh &&
+    bb.y + bb.height > ry
+  )
+}
+
 // ---------------------------------------------------------------------------
 // Type guards
 // ---------------------------------------------------------------------------

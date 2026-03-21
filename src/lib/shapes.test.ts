@@ -11,6 +11,7 @@ import {
   computeArrowPoints,
   getConnectedArrows,
   isPointInBoundingBox,
+  intersectsBoundingBox,
   isRectElement,
   isEllipseElement,
   isLineElement,
@@ -417,5 +418,57 @@ describe('getConnectedArrows', () => {
     const unrelated = createArrowElement(0, 0, 100, 0, { id: 'a1', from: null, to: null })
     const result = getConnectedArrows([rect, unrelated], 'r1')
     expect(result).toHaveLength(0)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// intersectsBoundingBox
+// ---------------------------------------------------------------------------
+
+describe('intersectsBoundingBox', () => {
+  it('returns true when selection rect fully contains the element', () => {
+    const rect = createRectElement({ x: 10, y: 10, width: 50, height: 50 })
+    expect(intersectsBoundingBox(rect, { x: 0, y: 0, width: 100, height: 100 })).toBe(true)
+  })
+
+  it('returns true when element fully contains the selection rect', () => {
+    const rect = createRectElement({ x: 0, y: 0, width: 200, height: 200 })
+    expect(intersectsBoundingBox(rect, { x: 50, y: 50, width: 50, height: 50 })).toBe(true)
+  })
+
+  it('returns true when rects partially overlap', () => {
+    const rect = createRectElement({ x: 0, y: 0, width: 100, height: 100 })
+    expect(intersectsBoundingBox(rect, { x: 80, y: 80, width: 50, height: 50 })).toBe(true)
+  })
+
+  it('returns false when rects do not overlap', () => {
+    const rect = createRectElement({ x: 0, y: 0, width: 50, height: 50 })
+    expect(intersectsBoundingBox(rect, { x: 100, y: 100, width: 50, height: 50 })).toBe(false)
+  })
+
+  it('returns false when rects only share an edge', () => {
+    const rect = createRectElement({ x: 0, y: 0, width: 50, height: 50 })
+    // Selection starts exactly where element ends — touching edge, no overlap
+    expect(intersectsBoundingBox(rect, { x: 50, y: 0, width: 50, height: 50 })).toBe(false)
+  })
+
+  it('normalises negative width/height in the selection rect', () => {
+    const rect = createRectElement({ x: 10, y: 10, width: 50, height: 50 })
+    // Drag from (110, 110) to (0, 0) — same region as (0,0,110,110) but width/height are negative
+    expect(intersectsBoundingBox(rect, { x: 110, y: 110, width: -110, height: -110 })).toBe(true)
+  })
+
+  it('works for ellipse elements using radiusX/radiusY bounding box', () => {
+    const ellipse = createEllipseElement({ x: 100, y: 100, radiusX: 40, radiusY: 30 })
+    // Bounding box is (60, 70, 80, 60)
+    expect(intersectsBoundingBox(ellipse, { x: 50, y: 50, width: 50, height: 50 })).toBe(true)
+    expect(intersectsBoundingBox(ellipse, { x: 200, y: 200, width: 50, height: 50 })).toBe(false)
+  })
+
+  it('works for arrow elements', () => {
+    const arrow = createArrowElement(0, 0, 100, 100, { id: 'a1' })
+    // Arrow bounding box is (0, 0, 100, 100)
+    expect(intersectsBoundingBox(arrow, { x: 50, y: 50, width: 100, height: 100 })).toBe(true)
+    expect(intersectsBoundingBox(arrow, { x: 200, y: 200, width: 50, height: 50 })).toBe(false)
   })
 })

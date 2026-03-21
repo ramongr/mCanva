@@ -897,4 +897,98 @@ describe('Canvas', () => {
       .filter((c) => c.name().startsWith('anchor-'))
     expect(anchorsAfter).toHaveLength(0)
   })
+
+  // ---------------------------------------------------------------------------
+  // Marquee (rubber-band) selection
+  // ---------------------------------------------------------------------------
+
+  it('dragging on empty canvas selects all overlapping elements', () => {
+    useCanvasStore.getState().addElement(createRectElement({ id: 'r1', x: 50, y: 50, width: 80, height: 60 }))
+    useCanvasStore.getState().addElement(createRectElement({ id: 'r2', x: 300, y: 300, width: 80, height: 60 }))
+    const { stage } = renderCanvas()
+
+    // Drag from (0, 0) to (200, 200) — should cover r1 but not r2
+    stage.setPointersPositions({ clientX: 0, clientY: 0 })
+    act(() => { stage.fire('mousedown', { target: stage }) })
+
+    stage.setPointersPositions({ clientX: 200, clientY: 200 })
+    act(() => { stage.fire('mousemove') })
+
+    act(() => { stage.fire('mouseup') })
+
+    const ids = useCanvasStore.getState().selectedIds
+    expect(ids.has('r1')).toBe(true)
+    expect(ids.has('r2')).toBe(false)
+  })
+
+  it('dragging over multiple elements selects them all', () => {
+    useCanvasStore.getState().addElement(createRectElement({ id: 'r1', x: 50, y: 50, width: 80, height: 60 }))
+    useCanvasStore.getState().addElement(createEllipseElement({ id: 'e1', x: 200, y: 200, radiusX: 40, radiusY: 30 }))
+    const { stage } = renderCanvas()
+
+    // Drag from (0, 0) to (400, 400) — covers both r1 and e1
+    stage.setPointersPositions({ clientX: 0, clientY: 0 })
+    act(() => { stage.fire('mousedown', { target: stage }) })
+
+    stage.setPointersPositions({ clientX: 400, clientY: 400 })
+    act(() => { stage.fire('mousemove') })
+
+    act(() => { stage.fire('mouseup') })
+
+    const ids = useCanvasStore.getState().selectedIds
+    expect(ids.has('r1')).toBe(true)
+    expect(ids.has('e1')).toBe(true)
+  })
+
+  it('a tiny drag (less than 4px) does not trigger marquee selection', () => {
+    useCanvasStore.getState().addElement(createRectElement({ id: 'r1', x: 50, y: 50, width: 80, height: 60 }))
+    const { stage } = renderCanvas()
+
+    stage.setPointersPositions({ clientX: 0, clientY: 0 })
+    act(() => { stage.fire('mousedown', { target: stage }) })
+
+    stage.setPointersPositions({ clientX: 2, clientY: 2 })
+    act(() => { stage.fire('mousemove') })
+
+    act(() => { stage.fire('mouseup') })
+
+    // No marquee selection should have happened
+    expect(useCanvasStore.getState().selectedIds.size).toBe(0)
+  })
+
+  it('dragging on empty area with no elements clears the selection', () => {
+    useCanvasStore.getState().addElement(createRectElement({ id: 'r1', x: 500, y: 500, width: 80, height: 60 }))
+    useCanvasStore.setState({ selectedIds: new Set(['r1']) })
+    const { stage } = renderCanvas()
+
+    // Drag over the top-left corner — no elements there
+    stage.setPointersPositions({ clientX: 0, clientY: 0 })
+    act(() => { stage.fire('mousedown', { target: stage }) })
+
+    stage.setPointersPositions({ clientX: 200, clientY: 200 })
+    act(() => { stage.fire('mousemove') })
+
+    act(() => { stage.fire('mouseup') })
+
+    expect(useCanvasStore.getState().selectedIds.size).toBe(0)
+  })
+
+  it('mousedown on a shape (not the stage) does not start marquee', () => {
+    useCanvasStore.getState().addElement(createRectElement({ id: 'r1', x: 50, y: 50, width: 80, height: 60 }))
+    const { stage } = renderCanvas()
+
+    const group = stage.findOne('#r1') as Konva.Group
+    // Fire mousedown with target = the shape group (not the stage)
+    stage.setPointersPositions({ clientX: 90, clientY: 80 })
+    act(() => { stage.fire('mousedown', { target: group }) })
+
+    stage.setPointersPositions({ clientX: 400, clientY: 400 })
+    act(() => { stage.fire('mousemove') })
+
+    act(() => { stage.fire('mouseup') })
+
+    // Should NOT have selected r1 via marquee (shape click handler would, but not marquee)
+    // The important thing is no marquee selection overrides a shape drag
+    expect(useCanvasStore.getState().selectedIds.size).toBe(0)
+  })
 })
