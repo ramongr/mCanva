@@ -1,0 +1,55 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "small_model": "github-copilot/gpt-5-mini",
+  "permission": {
+    // GitHub MCP
+    "github_get*": "allow",
+    "github_list*": "allow",
+    "github_search*": "allow",
+    "github_github_support_docs_search": "allow",
+    "github_issue_read": "allow",
+    "github_pull_request_read": "allow",
+    "github_search_code": "allow",
+    "github_search_orgs": "allow",
+    "github_search_repositories": "allow",
+    "github_search_users": "allow",
+    "github_add_comment_to_pending_review": "ask",
+    "github_add_issue_comment": "ask",
+    "github_add_reply_to_pull_request_comment": "ask",
+    "github_assign_copilot_to_issue": "ask",
+    "github_create_branch": "ask",
+    "github_create_or_update_file": "ask",
+    "github_create_pull_request": "ask",
+    "github_create_pull_request_with_copilot": "ask",
+    "github_create_repository": "ask",
+    "github_delete_file": "ask",
+    "github_fork_repository": "ask",
+    "github_get_teams": "ask",
+    "github_get_team_members": "ask",
+    "github_issue_write": "ask",
+    "github_merge_pull_request": "ask",
+    "github_push_files": "ask",
+    "github_request_copilot_review": "ask",
+    "github_sub_issue_write": "ask",
+    "github_update_pull_request": "ask",
+    "github_update_pull_request_branch": "ask",
+    "github_dismiss_notification": "ask",
+    "github_create_and_submit_pull_request_review": "ask",
+    "github_create_pending_pull_request_review": "ask",
+    "github_delete_pending_pull_request_review": "ask",
+  },
+  "mcp": {
+    "github": {
+      "type": "remote",
+      "url": "https://api.githubcopilot.com/mcp",
+      "headers": {
+        "Authorization": "Bearer {env:GITHUB_MCP_TOKEN}"
+      },
+      "enabled": false
+    }
+  },
+  "plugin": [
+    "@tarquinen/opencode-dcp@latest",
+    "opencode-gemini-auth@latest"
+  ]
+}
