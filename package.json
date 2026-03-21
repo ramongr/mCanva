@@ -1,0 +1,42 @@
+{
+  "name": "mcanva",
+  "version": "0.0.1",
+  "description": "A mini canvas wireframing tool",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -p tsconfig.json && vite build",
+    "preview": "vite preview",
+    "lint": "oxlint src",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "konva": "10.2.3",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "react-konva": "19.2.3",
+    "zustand": "5.0.12"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "4.2.2",
+    "@testing-library/jest-dom": "6.9.1",
+    "@testing-library/react": "16.3.2",
+    "@testing-library/user-event": "14.6.1",
+    "@types/node": "^25.5.0",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "6.0.1",
+    "@vitest/coverage-v8": "4.1.0",
+    "jsdom": "29.0.1",
+    "oxlint": "^1.56.0",
+    "tailwindcss": "4.2.2",
+    "typescript": "5.9.3",
+    "vite": "8.0.1",
+    "vitest": "4.1.0",
+    "vitest-canvas-mock": "1.1.3"
+  }
+}

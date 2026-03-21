@@ -1,0 +1,12 @@
+# Environment secrets
+.env.opencode
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Test coverage
+coverage/
+
