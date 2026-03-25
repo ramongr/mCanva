@@ -48,6 +48,11 @@ describe('ArrowShape', () => {
     expect(body.className).toBe('Arrow')
   })
 
+  it('has hitStrokeWidth of 10 on the arrow body for easier clicking', () => {
+    const { body } = setup()
+    expect(body.getAttr('hitStrokeWidth')).toBe(10)
+  })
+
   it('is draggable when both endpoints are free and not locked', () => {
     const { group } = setup({ from: null, to: null })
     expect(group.draggable()).toBe(true)

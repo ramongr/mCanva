@@ -214,6 +214,7 @@ export function ArrowShape({
         fill={element.stroke}
         pointerAtBeginning={element.pointerAtStart}
         pointerAtEnding={element.pointerAtEnd}
+        hitStrokeWidth={10}
       />
 
       {/* Endpoint handles — shown only when selected */}
