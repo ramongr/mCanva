@@ -6,8 +6,6 @@ import { useCanvasStore } from '@/store/canvasStore'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 
 export default function App() {
-  const setActiveTool = useCanvasStore((s) => s.setActiveTool)
-  const activeTool = useCanvasStore((s) => s.activeTool)
   const elements = useCanvasStore((s) => s.elements)
   const selectedIds = useCanvasStore((s) => s.selectedIds)
   const selectElements = useCanvasStore((s) => s.selectElements)
@@ -60,7 +58,7 @@ export default function App() {
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-gray-100">
-      <Toolbar activeTool={activeTool} onToolSelect={setActiveTool} />
+      <Toolbar />
       <main
         ref={canvasContainerRef}
         className="flex-1 overflow-hidden"

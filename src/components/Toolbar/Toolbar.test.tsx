@@ -1,30 +1,33 @@
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { render, screen, cleanup } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Toolbar } from './Toolbar'
 import { TOOLS } from '@/lib/toolConfig'
+import { useCanvasStore } from '@/store/canvasStore'
 
-function setup(activeTool: Parameters<typeof Toolbar>[0]['activeTool'] = null) {
-  const onToolSelect = vi.fn()
-  render(<Toolbar activeTool={activeTool} onToolSelect={onToolSelect} />)
-  return { onToolSelect }
-}
+beforeEach(() => {
+  useCanvasStore.setState({ activeTool: null })
+})
+
+afterEach(() => {
+  cleanup()
+})
 
 describe('Toolbar', () => {
   it('renders a button for every tool', () => {
-    setup()
+    render(<Toolbar />)
     for (const tool of TOOLS) {
       expect(screen.getByRole('button', { name: tool.description })).toBeInTheDocument()
     }
   })
 
   it('renders the toolbar landmark with accessible label', () => {
-    setup()
+    render(<Toolbar />)
     expect(screen.getByRole('complementary', { name: 'Drawing tools' })).toBeInTheDocument()
   })
 
-  it('sets aria-pressed=false for inactive tools', () => {
-    setup(null)
+  it('sets aria-pressed=false for all tools when activeTool is null', () => {
+    render(<Toolbar />)
     for (const tool of TOOLS) {
       const btn = screen.getByRole('button', { name: tool.description })
       expect(btn).toHaveAttribute('aria-pressed', 'false')
@@ -32,37 +35,45 @@ describe('Toolbar', () => {
   })
 
   it('sets aria-pressed=true for the active tool', () => {
-    setup('rect')
+    useCanvasStore.setState({ activeTool: 'rect' })
+    render(<Toolbar />)
     const rectBtn = screen.getByRole('button', { name: 'Draw a rectangle' })
     expect(rectBtn).toHaveAttribute('aria-pressed', 'true')
   })
 
-  it('calls onToolSelect with the tool type when a tool button is clicked', async () => {
-    const { onToolSelect } = setup(null)
+  it('sets activeTool in the store when a tool button is clicked', async () => {
+    render(<Toolbar />)
     await userEvent.click(screen.getByRole('button', { name: 'Draw a rectangle' }))
-    expect(onToolSelect).toHaveBeenCalledWith('rect')
+    expect(useCanvasStore.getState().activeTool).toBe('rect')
   })
 
-  it('calls onToolSelect with ellipse when ellipse is clicked', async () => {
-    const { onToolSelect } = setup(null)
+  it('sets activeTool to ellipse when ellipse is clicked', async () => {
+    render(<Toolbar />)
     await userEvent.click(screen.getByRole('button', { name: 'Draw an ellipse' }))
-    expect(onToolSelect).toHaveBeenCalledWith('ellipse')
+    expect(useCanvasStore.getState().activeTool).toBe('ellipse')
   })
 
-  it('calls onToolSelect with line when line is clicked', async () => {
-    const { onToolSelect } = setup(null)
+  it('sets activeTool to line when line is clicked', async () => {
+    render(<Toolbar />)
     await userEvent.click(screen.getByRole('button', { name: 'Draw a line' }))
-    expect(onToolSelect).toHaveBeenCalledWith('line')
+    expect(useCanvasStore.getState().activeTool).toBe('line')
   })
 
-  it('calls onToolSelect with null when the active tool is clicked again (deactivate)', async () => {
-    const { onToolSelect } = setup('rect')
+  it('sets activeTool to arrow when arrow is clicked', async () => {
+    render(<Toolbar />)
+    await userEvent.click(screen.getByRole('button', { name: 'Draw a connector arrow' }))
+    expect(useCanvasStore.getState().activeTool).toBe('arrow')
+  })
+
+  it('sets activeTool to null when the active tool is clicked again (deactivate)', async () => {
+    useCanvasStore.setState({ activeTool: 'rect' })
+    render(<Toolbar />)
     await userEvent.click(screen.getByRole('button', { name: 'Draw a rectangle' }))
-    expect(onToolSelect).toHaveBeenCalledWith(null)
+    expect(useCanvasStore.getState().activeTool).toBeNull()
   })
 
   it('shows the keyboard shortcut in the button title', () => {
-    setup()
+    render(<Toolbar />)
     expect(screen.getByTitle('Rectangle (R)')).toBeInTheDocument()
     expect(screen.getByTitle('Ellipse (E)')).toBeInTheDocument()
     expect(screen.getByTitle('Line (L)')).toBeInTheDocument()

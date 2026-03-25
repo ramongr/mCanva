@@ -1,21 +1,14 @@
-/**
- * Toolbar — the shape palette.
- *
- * Purely prop-driven: receives activeTool and onToolSelect callback.
- * No store access — wired up in App.tsx.
- */
 import type { ShapeType } from '@/types/shapes'
 import { TOOLS } from '@/lib/toolConfig'
+import { useCanvasStore } from '@/store/canvasStore'
 
-export interface ToolbarProps {
-  activeTool: ShapeType | null
-  onToolSelect: (tool: ShapeType | null) => void
-}
+export function Toolbar() {
+  const activeTool = useCanvasStore((s) => s.activeTool)
+  const setActiveTool = useCanvasStore((s) => s.setActiveTool)
 
-export function Toolbar({ activeTool, onToolSelect }: ToolbarProps) {
   const handleClick = (type: ShapeType) => {
     // Clicking the active tool again deactivates it (back to select mode)
-    onToolSelect(activeTool === type ? null : type)
+    setActiveTool(activeTool === type ? null : type)
   }
 
   return (
