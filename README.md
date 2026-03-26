@@ -6,6 +6,28 @@ Draw shapes, connect them with smart arrows, label them, and style them — all 
 
 ---
 
+## Screenshots
+
+### Empty canvas
+
+![Empty canvas with toolbar and grid](docs/screenshots/01-empty-canvas.png)
+
+*Left sidebar lists all tools with their keyboard shortcuts. The right sidebar shows the Layers panel. The canvas has a 10px snap-to-grid overlay.*
+
+### Shapes and selection
+
+![Shapes on canvas with floating toolbar](docs/screenshots/02-shapes-selected.png)
+
+*A rectangle and an ellipse placed on the canvas. Selecting a shape attaches resize handles (Konva Transformer) and shows the FloatingToolbar HTML overlay for fill, border, stroke width, and corner radius controls.*
+
+### Smart arrows
+
+![Arrow connecting two shapes](docs/screenshots/05-arrow-placed.png)
+
+*An arrow drawn from a rectangle's anchor point. Arrows are first-class elements: they snap to shape edge midpoints, stay connected when shapes are moved, and appear in the Layers panel.*
+
+---
+
 ## Tech Stack
 
 | Package | Version | Role |
@@ -17,7 +39,7 @@ Draw shapes, connect them with smart arrows, label them, and style them — all 
 | `vite` | 8.0.1 | Build tool and dev server |
 | `typescript` | 5.9.3 | Type safety |
 | `vitest` | 4.1.0 | Test runner |
-| `oxlint` | latest | Linter |
+| `oxlint` | ^1.56.0 | Linter |
 
 ---
 
@@ -68,93 +90,71 @@ just opencode
 
 ---
 
-## What Has Been Built
+## Features
 
-### Phase 1 — Core Wireframing
+### Shapes
 
-The foundational layer: a working canvas where shapes can be placed, selected, resized, and dragged.
+**Rectangle, Ellipse, and Line** can be placed on the canvas by selecting the corresponding tool in the left sidebar (or pressing the keyboard shortcut) and clicking anywhere on the canvas.
 
-**Shapes:** Rectangle, Ellipse, and Line can be placed on the canvas by selecting the corresponding tool in the left sidebar and clicking anywhere on the canvas.
+### Selection and transformation
 
-**Selection and transformation:** Clicking a shape selects it. A `Konva.Transformer` attaches to the selected shape, providing resize handles. Resizing a shape absorbs the Konva scale back into the element's dimensions (width/height for rects, radiusX/radiusY for ellipses) and resets scale to 1, keeping the store state in sync.
+Clicking a shape selects it. A `Konva.Transformer` attaches to the selected shape, providing resize handles. Resizing absorbs the Konva scale back into the element's dimensions (`width`/`height` for rects, `radiusX`/`radiusY` for ellipses) and resets scale to 1, keeping the store state canonical. Shift+click adds to an existing selection; dragging on empty canvas performs marquee (rubber-band) selection.
 
-**Drag and drop:** All shapes are draggable. Position is committed to the Zustand store on `dragend`.
+### Drag and drop
 
-**Tool palette:** A sidebar toolbar lists all available tools. Each tool has a label, a keyboard shortcut indicator, and `aria-pressed` state. The active tool can be deactivated by clicking it again.
+All shapes are draggable. Position is snapped to a 10px grid and committed to the Zustand store on `dragend`. Dragging any shape in a multi-selection moves all others by the same delta.
 
-**Architecture established in Phase 1:**
-- The Zustand store (`canvasStore.ts`) is the single source of truth. All mutations are pure actions with no side effects — fully unit-testable without mounting React.
-- Shape components (`RectShape`, `EllipseShape`, `LineShape`) are purely prop-driven. They take an `element` prop and emit `onSelect` / `onChange` callbacks. No direct store access.
-- `ShapeRenderer` dispatches on `element.type` to keep `Canvas.tsx` free of type-switch logic.
-- `useCanvasEvents` encapsulates stage-level pointer events (click-to-add, click-to-deselect).
-- All library functions in `src/lib/` are pure (no React, no Zustand) and independently unit-tested.
+### Shape styling
 
-### Phase 2 — Colors, Text Labels, and Smart Connectors
+A **FloatingToolbar** HTML overlay appears above the selected shape. It exposes:
+- Fill color (with a transparent toggle)
+- Border / stroke color
+- Stroke width (clamped 1–20)
+- Corner radius (rectangles only)
 
-Three features layered on the Phase 1 foundation.
+Changes are applied immediately.
 
-**Shape styling:** A `FloatingToolbar` HTML overlay appears above the selected shape. It exposes fill color (with a transparent toggle), border/stroke color, stroke width (clamped 1–20), and corner radius for rectangles. All changes are applied immediately. The selection highlight is a separate Konva overlay node so the shape's own stroke color is always preserved.
+### Text labels
 
-**Text labels:** All shapes support an optional text label rendered centered inside the shape body. Double-clicking a shape opens an absolutely-positioned `<textarea>` overlay for editing. Pressing `Enter` or blurring the textarea commits the label; pressing `Escape` cancels without saving.
+All shapes support an optional text label rendered centered inside the shape body. Double-clicking a shape opens an absolutely-positioned `<textarea>` overlay. `Enter` or blur commits the label; `Escape` cancels without saving.
 
-**Smart connectors (arrows):** Arrows are first-class elements with their own type, factory, and component. Key behaviors:
+### Smart connectors (arrows)
+
+Arrows are first-class elements with their own type, factory, and component.
 
 - **Two-click drawing:** Select the Arrow tool, click to set the start point, move the cursor to see a live dashed preview, then click again to place the arrow.
-- **Anchor snapping:** When drawing or reconnecting, hovering within 20px of a shape's edge midpoint (top, right, bottom, left) snaps the endpoint to that anchor. Anchor indicators appear as circles on all non-arrow shapes when the arrow tool is active.
-- **Connection tracking:** An `ArrowElement` stores `from` and `to` connection descriptors (`{ shapeId, anchor }`). When a connected shape is moved or resized, the store automatically recomputes the arrow's points to keep it routed correctly.
-- **Live rerouting:** During a drag, `liveUpdateArrowConnections` updates arrow points in real-time without committing the shape's position to the store, preventing React/Konva position conflicts.
+- **Anchor snapping:** Hovering within 20px of a shape's edge midpoint (top, right, bottom, left) snaps the endpoint to that anchor. Anchor indicators appear as circles on all non-arrow shapes when the arrow tool is active.
+- **Connection tracking:** An `ArrowElement` stores `from` and `to` connection descriptors (`{ shapeId, anchor }`). When a connected shape is moved or resized, the store automatically recomputes the arrow's points.
+- **Live rerouting:** During a drag, `liveUpdateArrowConnections` updates arrow points in real-time without committing the shape's position, preventing React/Konva position conflicts.
 - **Endpoint reconnection:** Clicking a connected endpoint handle on a selected arrow enters reconnect mode. The endpoint can be snapped to a new anchor or released as a free point.
-- **Arrow body drag:** An arrow whose endpoints are both free can be dragged as a whole. An arrow with one free endpoint can be dragged — only the free endpoint's coordinate updates; the connected endpoint stays anchored.
+- **Arrow body drag:** A fully-free arrow can be dragged as a whole. A partially-connected arrow drags only the free endpoint.
 
-**Interaction hooks:**
-- `useArrowDrawing` — idle/drawing state machine for two-click arrow placement, with a ref-based closure fix to ensure the latest `onAddArrow` callback is always used.
-- `useArrowReconnect` — idle/reconnecting state machine for editing existing arrow endpoints, with the same ref pattern to prevent stale closures between `startReconnect` and `commit` calls.
+### Keyboard shortcuts
 
-### Phase 3 — Planned (not yet started)
+| Key | Action |
+|---|---|
+| `R` | Toggle Rectangle tool |
+| `E` | Toggle Ellipse tool |
+| `L` | Toggle Line tool |
+| `A` | Toggle Arrow tool |
+| `Delete` / `Backspace` | Remove all selected elements |
+| `Escape` | Deactivate active tool / cancel arrow drawing |
+| `Ctrl+D` / `Cmd+D` | Duplicate selected element(s) at +20,+20 offset |
 
-The next phase is documented in `.opencode/plans/keyboard-multiselect-layers-grid.md` and covers:
+Shortcuts are suppressed when focus is inside an `<input>`, `<textarea>`, or `[contenteditable]`.
 
-- **Keyboard shortcuts** — tool activation via R/E/L/A, Delete/Backspace to remove shapes, Escape to cancel, Ctrl+D to duplicate
-- **Multi-select** — Shift+click to toggle, marquee rubber-band selection, group drag
-- **Layers panel** — right sidebar with visibility/lock toggles, z-order controls, inline label rename
-- **Snap to grid** — always-visible 10px grid with placement and drag snapping
+### Layers panel
 
----
+The right sidebar shows all elements in reverse z-order. Each row has:
+- Eye icon (visibility toggle)
+- Lock icon
+- Type badge (`rect`, `ellipse`, `line`, `arrow`)
+- Inline-editable label
+- Bring-to-front / send-to-back chevrons
 
-## Project Structure
+Clicking a row selects the element; Shift+click adds to selection.
 
-```
-src/
-├── types/
-│   ├── shapes.ts          # WireframeElement union, all shape types, ArrowConnection
-│   └── konva.ts           # KonvaPointerEvent / KonvaDragEvent type aliases
-├── lib/
-│   ├── shapes.ts          # Pure shape factories, geometry helpers, type guards
-│   ├── elementUtils.ts    # Pure immutable array operations for the elements list
-│   ├── stageUtils.ts      # Pure Konva stage event utilities
-│   └── toolConfig.ts      # Tool metadata registry (label, description, shortcut)
-├── store/
-│   └── canvasStore.ts     # Zustand store: elements, selection, active tool, arrow actions
-├── hooks/
-│   ├── useCanvasEvents.ts   # Stage-level pointer events (place shape, deselect)
-│   ├── useArrowDrawing.ts   # Two-click arrow placement state machine
-│   └── useArrowReconnect.ts # Arrow endpoint reconnect state machine
-├── components/
-│   ├── Canvas/              # Main drawing surface; orchestrates all interaction logic
-│   ├── Toolbar/             # Left sidebar tool palette (prop-driven)
-│   ├── FloatingToolbar/     # HTML overlay for fill, stroke, and style controls
-│   ├── ShapeRenderer/       # Type dispatcher: element.type → shape component
-│   ├── SelectionTransformer/# Konva.Transformer wrapper for resize handles
-│   ├── AnchorPoints/        # Anchor indicators overlay for arrow snapping
-│   └── shapes/
-│       ├── RectShape.tsx
-│       ├── EllipseShape.tsx
-│       ├── LineShape.tsx
-│       └── ArrowShape.tsx
-├── test-utils/
-│   └── KonvaTestWrapper.tsx # Stage + Layer wrapper for Konva component tests
-├── App.tsx                  # Top-level layout: Toolbar + Canvas, ResizeObserver
-└── main.tsx                 # React entry point
-```
+### Snap to grid
 
-Every source file has a co-located `.test.ts` / `.test.tsx` file. Tests use Vitest, `@testing-library/react`, and `vitest-canvas-mock` to polyfill the Canvas API in jsdom.
+`GRID_SIZE = 10`. `snapToGrid()` rounds coordinates to the nearest 10px. Applied on shape placement and on `dragend`. A `GridLayer` renders `#e2e8f0` 0.5px lines behind all shapes.
+
