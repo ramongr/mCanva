@@ -8,7 +8,7 @@
  * Reads from and writes to the Zustand store — this is the only component
  * that has a store dependency, keeping all others purely prop-driven.
  */
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { Stage, Layer, Arrow, Rect as KonvaRect } from 'react-konva'
 import type Konva from 'konva'
 import { useCanvasStore } from '@/store/canvasStore'
@@ -24,7 +24,7 @@ import { GridLayer } from '@/components/GridLayer/GridLayer'
 import { snapToGrid } from '@/lib/gridUtils'
 import type { TransformAttrs } from '@/components/SelectionTransformer/SelectionTransformer'
 import type { KonvaEventObject } from 'konva/lib/Node'
-import type { ArrowConnection } from '@/types/shapes'
+import type { ArrowConnection, RectElement } from '@/types/shapes'
 import type { ArrowDragEndPayload } from '@/components/shapes/ArrowShape'
 
 export interface CanvasProps {
@@ -436,6 +436,27 @@ export function Canvas({ width, height }: CanvasProps) {
     }
   }
 
+  // Extract only the fields FloatingToolbar renders — keeps it from re-rendering on x/y/rotation changes
+  const toolbarElement = useMemo(() => {
+    if (!selectedElement) return null
+    return {
+      id: selectedElement.id,
+      type: selectedElement.type,
+      fill: selectedElement.fill,
+      stroke: selectedElement.stroke,
+      strokeWidth: selectedElement.strokeWidth,
+      cornerRadius: (selectedElement as RectElement).cornerRadius,
+    } as RectElement
+  }, [
+    selectedElement?.id,
+    selectedElement?.type,
+    selectedElement?.fill,
+    selectedElement?.stroke,
+    selectedElement?.strokeWidth,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    (selectedElement as RectElement | null)?.cornerRadius,
+  ])
+
   // Compute textarea position for the element being edited
   const editingElement = editingLabelId ? elements.find((el) => el.id === editingLabelId) : null
   let textareaStyle: React.CSSProperties | null = null
@@ -568,9 +589,9 @@ export function Canvas({ width, height }: CanvasProps) {
 
   return (
     <div className="relative">
-      {selectedElement && toolbarPosition && !editingLabelId && !showAnchorOverlay && (
+      {toolbarElement && toolbarPosition && !editingLabelId && !showAnchorOverlay && (
         <FloatingToolbar
-          element={selectedElement}
+          element={toolbarElement}
           position={toolbarPosition}
           onUpdate={(update) => updateElement(update)}
         />

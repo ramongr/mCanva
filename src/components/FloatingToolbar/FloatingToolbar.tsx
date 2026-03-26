@@ -4,7 +4,10 @@
  * (for rects) corner radius.
  *
  * Purely prop-driven — no store access.
+ * Wrapped in React.memo so it only re-renders when style fields change,
+ * not on every position update during drag.
  */
+import React from 'react'
 import type { WireframeElement, ElementUpdate, RectElement } from '@/types/shapes'
 
 export interface FloatingToolbarProps {
@@ -14,7 +17,7 @@ export interface FloatingToolbarProps {
   onUpdate: (update: ElementUpdate) => void
 }
 
-export function FloatingToolbar({ element, position, onUpdate }: FloatingToolbarProps) {
+export const FloatingToolbar = React.memo(function FloatingToolbar({ element, position, onUpdate }: FloatingToolbarProps) {
   const isFillTransparent = element.fill === 'transparent' || element.fill === ''
 
   const handleFillColorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -131,4 +134,4 @@ export function FloatingToolbar({ element, position, onUpdate }: FloatingToolbar
       )}
     </div>
   )
-}
+})
