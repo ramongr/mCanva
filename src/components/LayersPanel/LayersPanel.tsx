@@ -1,32 +1,32 @@
 import React, { useState, useRef, useCallback } from 'react'
-import type { ElementUpdate, WireframeElement } from '@/types/shapes'
-
-interface LayersPanelProps {
-  elements: WireframeElement[]
-  selectedIds: Set<string>
-  onSelect: (id: string, shiftKey: boolean) => void
-  onUpdate: (update: ElementUpdate) => void
-  onMoveElementTo: (id: string, targetIndex: number) => void
-  onBringToFront: (id: string) => void
-  onSendToBack: (id: string) => void
-}
+import type { WireframeElement } from '@/types/shapes'
+import { useCanvasStore } from '@/store/canvasStore'
 
 interface EditingState {
   id: string
   value: string
 }
 
-export function LayersPanel({
-  elements,
-  selectedIds,
-  onSelect,
-  onUpdate,
-  onMoveElementTo: _onMoveElementTo,
-  onBringToFront,
-  onSendToBack,
-}: LayersPanelProps) {
+export function LayersPanel() {
+  const elements = useCanvasStore((s) => s.elements)
+  const selectedIds = useCanvasStore((s) => s.selectedIds)
+  const updateElement = useCanvasStore((s) => s.updateElement)
+  const moveElementTo = useCanvasStore((s) => s.moveElementTo)
+  const bringToFront = useCanvasStore((s) => s.bringToFront)
+  const sendToBack = useCanvasStore((s) => s.sendToBack)
+  const selectElements = useCanvasStore((s) => s.selectElements)
+  const toggleElementSelection = useCanvasStore((s) => s.toggleElementSelection)
+
   const [editing, setEditing] = useState<EditingState | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  const handleSelect = useCallback(
+    (id: string, shiftKey: boolean) => {
+      if (shiftKey) toggleElementSelection(id)
+      else selectElements(new Set([id]))
+    },
+    [selectElements, toggleElementSelection],
+  )
 
   const displayLabel = useCallback(
     (el: WireframeElement) => el.label || el.type,
@@ -45,10 +45,10 @@ export function LayersPanel({
 
   const commitEditing = useCallback(() => {
     if (editing) {
-      onUpdate({ id: editing.id, label: editing.value })
+      updateElement({ id: editing.id, label: editing.value })
       setEditing(null)
     }
-  }, [editing, onUpdate])
+  }, [editing, updateElement])
 
   const handleInputKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -60,6 +60,9 @@ export function LayersPanel({
     },
     [commitEditing],
   )
+
+  // suppress unused warning — reserved for future drag-to-reorder UI
+  void moveElementTo
 
   // Render in reverse z-order: top-most element first
   const reversedElements = [...elements].reverse()
@@ -93,7 +96,7 @@ export function LayersPanel({
               className={`flex cursor-pointer items-center gap-1 px-2 py-1.5 text-sm ${
                 isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'
               }`}
-              onClick={(e) => onSelect(el.id, e.shiftKey)}
+              onClick={(e) => handleSelect(el.id, e.shiftKey)}
             >
               {/* Eye (visible) toggle */}
               <button
@@ -103,7 +106,7 @@ export function LayersPanel({
                 }`}
                 onClick={(e) => {
                   e.stopPropagation()
-                  onUpdate({ id: el.id, visible: !el.visible })
+                  updateElement({ id: el.id, visible: !el.visible })
                 }}
                 title={el.visible ? 'Hide' : 'Show'}
                 aria-label={el.visible ? 'Hide element' : 'Show element'}
@@ -147,7 +150,7 @@ export function LayersPanel({
                 }`}
                 onClick={(e) => {
                   e.stopPropagation()
-                  onUpdate({ id: el.id, locked: !el.locked })
+                  updateElement({ id: el.id, locked: !el.locked })
                 }}
                 title={el.locked ? 'Unlock' : 'Lock'}
                 aria-label={el.locked ? 'Unlock element' : 'Lock element'}
@@ -218,7 +221,7 @@ export function LayersPanel({
                 className="flex-shrink-0 rounded p-0.5 text-gray-400 hover:bg-gray-200 hover:text-gray-700"
                 onClick={(e) => {
                   e.stopPropagation()
-                  onBringToFront(el.id)
+                  bringToFront(el.id)
                 }}
                 title="Bring to front"
                 aria-label="Bring to front"
@@ -241,7 +244,7 @@ export function LayersPanel({
                 className="flex-shrink-0 rounded p-0.5 text-gray-400 hover:bg-gray-200 hover:text-gray-700"
                 onClick={(e) => {
                   e.stopPropagation()
-                  onSendToBack(el.id)
+                  sendToBack(el.id)
                 }}
                 title="Send to back"
                 aria-label="Send to back"

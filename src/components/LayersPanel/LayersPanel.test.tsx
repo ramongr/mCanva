@@ -1,6 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 import { LayersPanel } from './LayersPanel'
+import { useCanvasStore } from '@/store/canvasStore'
 import {
   createRectElement,
   createEllipseElement,
@@ -16,58 +17,40 @@ function makeElements(): WireframeElement[] {
   ]
 }
 
-const defaultProps = {
-  selectedIds: new Set<string>(),
-  onSelect: vi.fn(),
-  onUpdate: vi.fn(),
-  onMoveElementTo: vi.fn(),
-  onBringToFront: vi.fn(),
-  onSendToBack: vi.fn(),
+function resetStore(elements: WireframeElement[] = makeElements()) {
+  useCanvasStore.setState({ elements, selectedIds: new Set() })
 }
 
-function setup(
-  overrides: Partial<typeof defaultProps> & {
-    elements?: WireframeElement[]
-  } = {},
-) {
-  const elements = overrides.elements ?? makeElements()
-  const props = { ...defaultProps, ...overrides, elements }
-  render(<LayersPanel {...props} />)
-  return { ...props, elements }
-}
+beforeEach(() => resetStore())
+afterEach(() => cleanup())
 
 describe('LayersPanel', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
-
   describe('rendering', () => {
     it('renders the panel', () => {
-      setup()
+      render(<LayersPanel />)
       expect(screen.getByTestId('layers-panel')).toBeInTheDocument()
     })
 
     it('shows the element count badge', () => {
-      setup()
+      render(<LayersPanel />)
       expect(screen.getByTestId('layers-count')).toHaveTextContent('3')
     })
 
     it('renders a row for each element', () => {
-      const elements = makeElements()
-      setup({ elements })
-      for (const el of elements) {
+      render(<LayersPanel />)
+      for (const el of makeElements()) {
         expect(screen.getByTestId(`layer-row-${el.id}`)).toBeInTheDocument()
       }
     })
 
     it('shows "No layers yet" when elements list is empty', () => {
-      setup({ elements: [] })
+      resetStore([])
+      render(<LayersPanel />)
       expect(screen.getByText('No layers yet')).toBeInTheDocument()
     })
 
     it('renders elements in reverse z-order (last element first)', () => {
-      const elements = makeElements()
-      setup({ elements })
+      render(<LayersPanel />)
       const rows = screen.getAllByTestId(/^layer-row-/)
       // Last element in array (a1) should appear first in the list
       expect(rows[0]).toHaveAttribute('data-testid', 'layer-row-a1')
@@ -76,183 +59,183 @@ describe('LayersPanel', () => {
     })
 
     it('displays element label when set', () => {
-      setup()
+      render(<LayersPanel />)
       expect(screen.getByTestId('layer-label-r1')).toHaveTextContent('Box')
     })
 
     it('falls back to type name when label is empty', () => {
-      setup()
+      render(<LayersPanel />)
       // e1 has no label, should show type 'ellipse'
       expect(screen.getByTestId('layer-label-e1')).toHaveTextContent('ellipse')
     })
 
     it('shows type badge for each element', () => {
-      setup()
-      // All three type badges should appear
+      render(<LayersPanel />)
       expect(screen.getAllByText('rect').length).toBeGreaterThan(0)
       expect(screen.getAllByText('ellipse').length).toBeGreaterThan(0)
       expect(screen.getAllByText('arrow').length).toBeGreaterThan(0)
     })
 
     it('highlights selected rows', () => {
-      setup({ selectedIds: new Set(['r1']) })
-      const row = screen.getByTestId('layer-row-r1')
-      expect(row.className).toContain('bg-blue-50')
+      useCanvasStore.setState({ selectedIds: new Set(['r1']) })
+      render(<LayersPanel />)
+      expect(screen.getByTestId('layer-row-r1').className).toContain('bg-blue-50')
     })
 
     it('does not highlight unselected rows with selection color', () => {
-      setup({ selectedIds: new Set(['r1']) })
-      const row = screen.getByTestId('layer-row-e1')
-      expect(row.className).not.toContain('bg-blue-50')
+      useCanvasStore.setState({ selectedIds: new Set(['r1']) })
+      render(<LayersPanel />)
+      expect(screen.getByTestId('layer-row-e1').className).not.toContain('bg-blue-50')
     })
   })
 
   describe('visibility toggle', () => {
     it('renders visible button for each element', () => {
-      setup()
+      render(<LayersPanel />)
       expect(screen.getByTestId('layer-visible-r1')).toBeInTheDocument()
     })
 
-    it('calls onUpdate with visible toggled when eye button clicked', () => {
-      const onUpdate = vi.fn()
-      const elements = makeElements()
-      // r1 is visible by default
-      setup({ elements, onUpdate })
+    it('sets visible=false in the store when eye button clicked on visible element', () => {
+      render(<LayersPanel />)
       fireEvent.click(screen.getByTestId('layer-visible-r1'))
-      expect(onUpdate).toHaveBeenCalledWith({ id: 'r1', visible: false })
+      const el = useCanvasStore.getState().elements.find((e) => e.id === 'r1')
+      expect(el?.visible).toBe(false)
     })
 
-    it('calls onUpdate with visible=true for hidden element', () => {
-      const onUpdate = vi.fn()
-      const elements = [createRectElement({ id: 'r1', visible: false })]
-      setup({ elements, onUpdate })
+    it('sets visible=true in the store when eye button clicked on hidden element', () => {
+      resetStore([createRectElement({ id: 'r1', visible: false })])
+      render(<LayersPanel />)
       fireEvent.click(screen.getByTestId('layer-visible-r1'))
-      expect(onUpdate).toHaveBeenCalledWith({ id: 'r1', visible: true })
+      const el = useCanvasStore.getState().elements.find((e) => e.id === 'r1')
+      expect(el?.visible).toBe(true)
     })
 
-    it('does not call onSelect when eye button is clicked', () => {
-      const onSelect = vi.fn()
-      setup({ onSelect })
+    it('does not change selection when eye button is clicked', () => {
+      render(<LayersPanel />)
       fireEvent.click(screen.getByTestId('layer-visible-r1'))
-      expect(onSelect).not.toHaveBeenCalled()
+      expect(useCanvasStore.getState().selectedIds.size).toBe(0)
     })
   })
 
   describe('lock toggle', () => {
     it('renders lock button for each element', () => {
-      setup()
+      render(<LayersPanel />)
       expect(screen.getByTestId('layer-lock-r1')).toBeInTheDocument()
     })
 
-    it('calls onUpdate with locked toggled when lock button clicked', () => {
-      const onUpdate = vi.fn()
-      const elements = makeElements()
-      setup({ elements, onUpdate })
+    it('sets locked=true in the store when lock button clicked on unlocked element', () => {
+      render(<LayersPanel />)
       fireEvent.click(screen.getByTestId('layer-lock-r1'))
-      expect(onUpdate).toHaveBeenCalledWith({ id: 'r1', locked: true })
+      const el = useCanvasStore.getState().elements.find((e) => e.id === 'r1')
+      expect(el?.locked).toBe(true)
     })
 
-    it('calls onUpdate with locked=false for locked element', () => {
-      const onUpdate = vi.fn()
-      const elements = [createRectElement({ id: 'r1', locked: true })]
-      setup({ elements, onUpdate })
+    it('sets locked=false in the store when lock button clicked on locked element', () => {
+      resetStore([createRectElement({ id: 'r1', locked: true })])
+      render(<LayersPanel />)
       fireEvent.click(screen.getByTestId('layer-lock-r1'))
-      expect(onUpdate).toHaveBeenCalledWith({ id: 'r1', locked: false })
+      const el = useCanvasStore.getState().elements.find((e) => e.id === 'r1')
+      expect(el?.locked).toBe(false)
     })
 
-    it('does not call onSelect when lock button is clicked', () => {
-      const onSelect = vi.fn()
-      setup({ onSelect })
+    it('does not change selection when lock button is clicked', () => {
+      render(<LayersPanel />)
       fireEvent.click(screen.getByTestId('layer-lock-r1'))
-      expect(onSelect).not.toHaveBeenCalled()
+      expect(useCanvasStore.getState().selectedIds.size).toBe(0)
     })
   })
 
   describe('row selection', () => {
-    it('calls onSelect with element id and shiftKey=false on plain click', () => {
-      const onSelect = vi.fn()
-      setup({ onSelect })
+    it('selects the element in the store on plain click', () => {
+      render(<LayersPanel />)
       fireEvent.click(screen.getByTestId('layer-row-r1'))
-      expect(onSelect).toHaveBeenCalledWith('r1', false)
+      expect(useCanvasStore.getState().selectedIds).toEqual(new Set(['r1']))
     })
 
-    it('calls onSelect with shiftKey=true on shift+click', () => {
-      const onSelect = vi.fn()
-      setup({ onSelect })
+    it('adds to selection on shift+click', () => {
+      useCanvasStore.setState({ selectedIds: new Set(['e1']) })
+      render(<LayersPanel />)
       fireEvent.click(screen.getByTestId('layer-row-r1'), { shiftKey: true })
-      expect(onSelect).toHaveBeenCalledWith('r1', true)
+      expect(useCanvasStore.getState().selectedIds).toEqual(new Set(['e1', 'r1']))
+    })
+
+    it('replaces selection on plain click when another is selected', () => {
+      useCanvasStore.setState({ selectedIds: new Set(['e1']) })
+      render(<LayersPanel />)
+      fireEvent.click(screen.getByTestId('layer-row-r1'))
+      expect(useCanvasStore.getState().selectedIds).toEqual(new Set(['r1']))
     })
   })
 
   describe('bring to front / send to back', () => {
     it('renders bring-to-front button for each element', () => {
-      setup()
+      render(<LayersPanel />)
       expect(screen.getByTestId('layer-bring-front-r1')).toBeInTheDocument()
     })
 
-    it('calls onBringToFront when bring-to-front is clicked', () => {
-      const onBringToFront = vi.fn()
-      setup({ onBringToFront })
+    it('moves element to top of the store elements array when bring-to-front clicked', () => {
+      render(<LayersPanel />)
       fireEvent.click(screen.getByTestId('layer-bring-front-r1'))
-      expect(onBringToFront).toHaveBeenCalledWith('r1')
+      const elements = useCanvasStore.getState().elements
+      expect(elements[elements.length - 1].id).toBe('r1')
     })
 
-    it('calls onSendToBack when send-to-back is clicked', () => {
-      const onSendToBack = vi.fn()
-      setup({ onSendToBack })
-      fireEvent.click(screen.getByTestId('layer-send-back-r1'))
-      expect(onSendToBack).toHaveBeenCalledWith('r1')
+    it('moves element to bottom of the store elements array when send-to-back clicked', () => {
+      render(<LayersPanel />)
+      fireEvent.click(screen.getByTestId('layer-send-back-a1'))
+      const elements = useCanvasStore.getState().elements
+      expect(elements[0].id).toBe('a1')
     })
 
-    it('does not call onSelect when bring-to-front is clicked', () => {
-      const onSelect = vi.fn()
-      setup({ onSelect })
+    it('does not change selection when bring-to-front is clicked', () => {
+      render(<LayersPanel />)
       fireEvent.click(screen.getByTestId('layer-bring-front-r1'))
-      expect(onSelect).not.toHaveBeenCalled()
+      expect(useCanvasStore.getState().selectedIds.size).toBe(0)
     })
   })
 
   describe('inline label editing', () => {
     it('shows label text before editing starts', () => {
-      setup()
+      render(<LayersPanel />)
       expect(screen.getByTestId('layer-label-r1')).toBeInTheDocument()
       expect(screen.queryByTestId('layer-label-input-r1')).not.toBeInTheDocument()
     })
 
     it('switches to input when label text is clicked', () => {
-      setup()
+      render(<LayersPanel />)
       fireEvent.click(screen.getByTestId('layer-label-r1'))
       expect(screen.getByTestId('layer-label-input-r1')).toBeInTheDocument()
     })
 
-    it('calls onUpdate with new label on blur', () => {
-      const onUpdate = vi.fn()
-      setup({ onUpdate })
+    it('updates label in the store on blur', () => {
+      render(<LayersPanel />)
       fireEvent.click(screen.getByTestId('layer-label-r1'))
       const input = screen.getByTestId('layer-label-input-r1')
       fireEvent.change(input, { target: { value: 'Updated Label' } })
       fireEvent.blur(input)
-      expect(onUpdate).toHaveBeenCalledWith({ id: 'r1', label: 'Updated Label' })
+      const el = useCanvasStore.getState().elements.find((e) => e.id === 'r1')
+      expect(el?.label).toBe('Updated Label')
     })
 
-    it('calls onUpdate with new label when Enter is pressed', () => {
-      const onUpdate = vi.fn()
-      setup({ onUpdate })
+    it('updates label in the store when Enter is pressed', () => {
+      render(<LayersPanel />)
       fireEvent.click(screen.getByTestId('layer-label-r1'))
       const input = screen.getByTestId('layer-label-input-r1')
       fireEvent.change(input, { target: { value: 'Enter Label' } })
       fireEvent.keyDown(input, { key: 'Enter' })
-      expect(onUpdate).toHaveBeenCalledWith({ id: 'r1', label: 'Enter Label' })
+      const el = useCanvasStore.getState().elements.find((e) => e.id === 'r1')
+      expect(el?.label).toBe('Enter Label')
     })
 
-    it('cancels editing on Escape without calling onUpdate', () => {
-      const onUpdate = vi.fn()
-      setup({ onUpdate })
+    it('cancels editing on Escape without updating the store', () => {
+      const originalLabel = useCanvasStore.getState().elements.find((e) => e.id === 'r1')?.label
+      render(<LayersPanel />)
       fireEvent.click(screen.getByTestId('layer-label-r1'))
       const input = screen.getByTestId('layer-label-input-r1')
       fireEvent.change(input, { target: { value: 'Changed' } })
       fireEvent.keyDown(input, { key: 'Escape' })
-      expect(onUpdate).not.toHaveBeenCalled()
+      const el = useCanvasStore.getState().elements.find((e) => e.id === 'r1')
+      expect(el?.label).toBe(originalLabel)
       expect(screen.queryByTestId('layer-label-input-r1')).not.toBeInTheDocument()
     })
   })
