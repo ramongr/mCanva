@@ -592,3 +592,90 @@ describe('liveUpdateArrowConnections', () => {
     expect(updatedArrow.points[1]).toBe(130)
   })
 })
+
+// ---------------------------------------------------------------------------
+// Undo/Redo (zundo temporal middleware)
+// ---------------------------------------------------------------------------
+
+describe('undo/redo', () => {
+  beforeEach(() => {
+    resetStore()
+    // Clear history
+    useCanvasStore.temporal.getState().clear()
+  })
+
+  it('undo reverts an element addition', () => {
+    const el = createRectElement({ id: 'r1' })
+    useCanvasStore.getState().addElement(el)
+    expect(useCanvasStore.getState().elements).toHaveLength(1)
+
+    useCanvasStore.temporal.getState().undo()
+    expect(useCanvasStore.getState().elements).toHaveLength(0)
+  })
+
+  it('redo restores an undone addition', () => {
+    const el = createRectElement({ id: 'r1' })
+    useCanvasStore.getState().addElement(el)
+    useCanvasStore.temporal.getState().undo()
+    expect(useCanvasStore.getState().elements).toHaveLength(0)
+
+    useCanvasStore.temporal.getState().redo()
+    expect(useCanvasStore.getState().elements).toHaveLength(1)
+    expect(useCanvasStore.getState().elements[0].id).toBe('r1')
+  })
+
+  it('undo reverts an element update', () => {
+    const el = createRectElement({ id: 'r1', fill: '#ff0000' })
+    useCanvasStore.getState().addElement(el)
+    useCanvasStore.getState().updateElement({ id: 'r1', fill: '#00ff00' })
+    expect(useCanvasStore.getState().elements[0].fill).toBe('#00ff00')
+
+    useCanvasStore.temporal.getState().undo()
+    expect(useCanvasStore.getState().elements[0].fill).toBe('#ff0000')
+  })
+
+  it('undo reverts an element removal', () => {
+    const el = createRectElement({ id: 'r1' })
+    useCanvasStore.getState().addElement(el)
+    useCanvasStore.getState().removeElement('r1')
+    expect(useCanvasStore.getState().elements).toHaveLength(0)
+
+    useCanvasStore.temporal.getState().undo()
+    expect(useCanvasStore.getState().elements).toHaveLength(1)
+    expect(useCanvasStore.getState().elements[0].id).toBe('r1')
+  })
+
+  it('undo only affects elements, not selection state', () => {
+    const el = createRectElement({ id: 'r1' })
+    useCanvasStore.getState().addElement(el)
+    useCanvasStore.getState().selectElements(new Set(['r1']))
+    expect(useCanvasStore.getState().selectedIds.has('r1')).toBe(true)
+    expect(useCanvasStore.getState().elements).toHaveLength(1)
+
+    // Undo all changes
+    useCanvasStore.temporal.getState().undo()
+    useCanvasStore.temporal.getState().undo()
+    useCanvasStore.temporal.getState().undo()
+
+    // Elements should be gone after enough undos
+    expect(useCanvasStore.getState().elements).toHaveLength(0)
+  })
+
+  it('undo only affects elements, not tool state', () => {
+    const el = createRectElement({ id: 'r1' })
+    useCanvasStore.getState().addElement(el)
+    useCanvasStore.getState().setActiveTool('rect')
+    expect(useCanvasStore.getState().activeTool).toBe('rect')
+    expect(useCanvasStore.getState().elements).toHaveLength(1)
+
+    // Undo all changes
+    useCanvasStore.temporal.getState().undo()
+    useCanvasStore.temporal.getState().undo()
+    useCanvasStore.temporal.getState().undo()
+
+    // Elements should be gone after enough undos
+    expect(useCanvasStore.getState().elements).toHaveLength(0)
+    // Tool state should still be 'rect' (not rolled back)
+    expect(useCanvasStore.getState().activeTool).toBe('rect')
+  })
+})

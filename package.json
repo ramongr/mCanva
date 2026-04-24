@@ -19,6 +19,7 @@
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-konva": "19.2.3",
+    "zundo": "^2.3.0",
     "zustand": "5.0.12"
   },
   "devDependencies": {
@@ -35,7 +36,7 @@
     "oxlint": "^1.56.0",
     "tailwindcss": "4.2.2",
     "typescript": "5.9.3",
-    "vite": "8.0.1",
+    "vite": "^8.0.10",
     "vitest": "4.1.0",
     "vitest-canvas-mock": "1.1.3"
   }
