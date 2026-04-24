@@ -2,8 +2,10 @@
  * Grid utilities for snap-to-grid and grid line generation.
  */
 
-/** Grid cell size in pixels */
-export const GRID_SIZE = 10
+import { GRID_SIZE } from '@/config/constants'
+
+// Re-export for backwards compatibility
+export { GRID_SIZE }
 
 /**
  * Snaps a value to the nearest grid point.
