@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Canvas } from '@/components/Canvas/Canvas'
 import { Toolbar } from '@/components/Toolbar/Toolbar'
 import { LayersPanel } from '@/components/LayersPanel/LayersPanel'
+import { ErrorBoundary } from '@/components/ErrorBoundary/ErrorBoundary'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 
 export default function App() {
@@ -44,7 +45,9 @@ export default function App() {
         aria-label="Canvas"
       >
         {canvasSize.width > 0 && canvasSize.height > 0 && (
-          <Canvas width={canvasSize.width} height={canvasSize.height} />
+          <ErrorBoundary>
+            <Canvas width={canvasSize.width} height={canvasSize.height} />
+          </ErrorBoundary>
         )}
       </main>
       <LayersPanel />
