@@ -26,16 +26,13 @@ import type { TransformAttrs } from '@/components/SelectionTransformer/Selection
 import type { KonvaEventObject } from 'konva/lib/Node'
 import type { ArrowConnection, RectElement } from '@/types/shapes'
 import type { ArrowDragEndPayload } from '@/components/shapes/ArrowShape'
+import { ANCHOR_SNAP_RADIUS, TOOLBAR_OFFSET_Y, MIN_MARQUEE_DRAG } from '@/config/constants'
+import { hasPosition, hasCornerRadius, isArrowElement } from '@/types/guards'
 
 export interface CanvasProps {
   width: number
   height: number
 }
-
-const TOOLBAR_OFFSET_Y = 44
-
-/** Minimum pixel distance to a shape anchor to trigger snap */
-const ANCHOR_SNAP_RADIUS = 20
 
 export function Canvas({ width, height }: CanvasProps) {
   const stageRef = useRef<Konva.Stage>(null)
@@ -114,12 +111,13 @@ export function Canvas({ width, height }: CanvasProps) {
   const blockShapesLayer = isArrowTool || isReconnecting
 
   // Reset arrow drawing state when arrow tool is deactivated
+  // Using ref to avoid lint warning - cancel is stable but oxlint doesn't track this
+  const cancelArrowDrawing = arrowDrawing.cancel
   useEffect(() => {
     if (!isArrowTool) {
-      arrowDrawing.cancel()
+      cancelArrowDrawing()
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isArrowTool])
+  }, [isArrowTool, cancelArrowDrawing])
 
   // Update cursor on the stage container imperatively so it is testable
   useEffect(() => {
@@ -266,9 +264,9 @@ export function Canvas({ width, height }: CanvasProps) {
       ) {
         // Find the element's previous position to compute the delta
         const el = elements.find((e) => e.id === id)
-        if (!el) return
-        const prevX = ('x' in el ? (el as { x: number }).x : 0)
-        const prevY = ('y' in el ? (el as { y: number }).y : 0)
+        if (!el || !hasPosition(el)) return
+        const prevX = el.x
+        const prevY = el.y
         const newX = 'x' in snapped ? (snapped.x as number) : prevX
         const newY = 'y' in snapped ? (snapped.y as number) : prevY
         const dx = newX - prevX
@@ -279,10 +277,8 @@ export function Canvas({ width, height }: CanvasProps) {
           const other = elements.find((e) => e.id === otherId)
           if (!other) continue
           // Arrows don't have a simple x/y position — skip them for group drag
-          if (other.type === 'arrow') continue
-          const otherX = ('x' in other ? (other as { x: number }).x : 0)
-          const otherY = ('y' in other ? (other as { y: number }).y : 0)
-          updateElement({ id: otherId, x: snapToGrid(otherX + dx), y: snapToGrid(otherY + dy) })
+          if (!hasPosition(other)) continue
+          updateElement({ id: otherId, x: snapToGrid(other.x + dx), y: snapToGrid(other.y + dy) })
         }
       }
     },
@@ -298,30 +294,27 @@ export function Canvas({ width, height }: CanvasProps) {
       // anchored on dragend via computeNewPoints in ArrowShape. No store update
       // here — updating points mid-drag causes React to re-render and reset the
       // group position, which makes the delta compound on every pixel moved.
-      if (el.type === 'arrow') return
+      if (isArrowElement(el)) return
 
       // For shapes: live-update connected arrow positions without committing shape x/y
       liveUpdateArrowConnections(id, { x, y })
 
       // Multi-selection drag: visually move all other selected non-arrow elements
       // by the same delta so they appear to move together during the drag.
-      if (selectedIds.size > 1 && selectedIds.has(id)) {
+      if (selectedIds.size > 1 && selectedIds.has(id) && hasPosition(el)) {
         const stage = stageRef.current
         if (!stage) return
-        const elX = ('x' in el ? (el as { x: number }).x : 0)
-        const elY = ('y' in el ? (el as { y: number }).y : 0)
-        const dx = x - elX
-        const dy = y - elY
+        const dx = x - el.x
+        const dy = y - el.y
 
         for (const otherId of selectedIds) {
           if (otherId === id) continue
           const other = elements.find((e) => e.id === otherId)
-          if (!other || other.type === 'arrow') continue
+          if (!other || !hasPosition(other)) continue
           const node = stage.findOne(`#${otherId}`)
           if (!node) continue
-          const otherEl = other as { x: number; y: number }
-          node.position({ x: otherEl.x + dx, y: otherEl.y + dy })
-          liveUpdateArrowConnections(otherId, { x: otherEl.x + dx, y: otherEl.y + dy })
+          node.position({ x: other.x + dx, y: other.y + dy })
+          liveUpdateArrowConnections(otherId, { x: other.x + dx, y: other.y + dy })
         }
       }
     },
@@ -437,24 +430,33 @@ export function Canvas({ width, height }: CanvasProps) {
   }
 
   // Extract only the fields FloatingToolbar renders — keeps it from re-rendering on x/y/rotation changes
+  // These individual property extractions prevent re-render when unrelated properties (x, y, rotation) change
+  const selectedId = selectedElement?.id
+  const selectedType = selectedElement?.type
+  const selectedFill = selectedElement?.fill
+  const selectedStroke = selectedElement?.stroke
+  const selectedStrokeWidth = selectedElement?.strokeWidth
+  const selectedCornerRadius = selectedElement && hasCornerRadius(selectedElement)
+    ? selectedElement.cornerRadius
+    : undefined
+
   const toolbarElement = useMemo(() => {
-    if (!selectedElement) return null
+    if (!selectedId) return null
     return {
-      id: selectedElement.id,
-      type: selectedElement.type,
-      fill: selectedElement.fill,
-      stroke: selectedElement.stroke,
-      strokeWidth: selectedElement.strokeWidth,
-      cornerRadius: (selectedElement as RectElement).cornerRadius,
+      id: selectedId,
+      type: selectedType,
+      fill: selectedFill,
+      stroke: selectedStroke,
+      strokeWidth: selectedStrokeWidth,
+      cornerRadius: selectedCornerRadius,
     } as RectElement
   }, [
-    selectedElement?.id,
-    selectedElement?.type,
-    selectedElement?.fill,
-    selectedElement?.stroke,
-    selectedElement?.strokeWidth,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    (selectedElement as RectElement | null)?.cornerRadius,
+    selectedId,
+    selectedType,
+    selectedFill,
+    selectedStroke,
+    selectedStrokeWidth,
+    selectedCornerRadius,
   ])
 
   // Compute textarea position for the element being edited
@@ -553,8 +555,7 @@ export function Canvas({ width, height }: CanvasProps) {
       marqueeRef.current = null
       setMarquee(null)
       // Only apply selection if the user actually dragged (not just clicked)
-      const MIN_DRAG = 4
-      if (Math.abs(rect.width) > MIN_DRAG || Math.abs(rect.height) > MIN_DRAG) {
+      if (Math.abs(rect.width) > MIN_MARQUEE_DRAG || Math.abs(rect.height) > MIN_MARQUEE_DRAG) {
         const hit = elements.filter((el) => intersectsBoundingBox(el, rect))
         if (hit.length > 0) {
           selectElements(new Set(hit.map((el) => el.id)))
