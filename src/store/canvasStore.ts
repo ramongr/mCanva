@@ -1,4 +1,6 @@
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
+import { temporal } from 'zundo'
 import type { ArrowConnection, ElementUpdate, ShapeType, WireframeElement } from '@/types/shapes'
 import { createElement, computeArrowPoints, getConnectedArrows } from '@/lib/shapes'
 import {
@@ -51,7 +53,13 @@ export interface CanvasActions {
   bringToFront: (id: string) => void
   /** Move element to bottom of z-order */
   sendToBack: (id: string) => void
-  /** Move element to a specific z-order index */
+  /**
+   * Move element to a specific z-order index.
+   *
+   * Reserved for future drag-to-reorder feature in LayersPanel.
+   * When implemented, users will be able to drag layers up/down in the
+   * panel to reorder them, which will call this action with the target index.
+   */
   moveElementTo: (id: string, targetIndex: number) => void
   /** Look up an element by id (read-only convenience) */
   getElementById: (id: string) => WireframeElement | undefined
@@ -88,27 +96,31 @@ export interface CanvasActions {
 export type CanvasStore = CanvasState & CanvasActions
 
 // ---------------------------------------------------------------------------
-// Store
+// Store with localStorage persistence and undo/redo support
+// Temporal (undo/redo) wraps persist so temporal.getState() works properly
 // ---------------------------------------------------------------------------
 
-export const useCanvasStore = create<CanvasStore>((set, get) => ({
-  // --- initial state ---
-  elements: [],
-  selectedIds: new Set<string>(),
-  activeTool: null,
+export const useCanvasStore = create<CanvasStore>()(
+  temporal(
+    persist(
+      (set, get) => ({
+        // --- initial state ---
+        elements: [],
+        selectedIds: new Set<string>(),
+        activeTool: null,
 
-  // --- actions ---
-  addElement: (element) =>
-    set((s) => ({ elements: addElement(s.elements, element) })),
+        // --- actions ---
+        addElement: (element) =>
+          set((s) => ({ elements: addElement(s.elements, element) })),
 
-  addElementAt: (type, x, y) => {
-    const element = createElement(type, { x, y })
-    set((s) => ({
-      elements: addElement(s.elements, element),
-      selectedIds: new Set([element.id]),
-      activeTool: null,
-    }))
-  },
+        addElementAt: (type, x, y) => {
+          const element = createElement(type, { x, y })
+          set((s) => ({
+            elements: addElement(s.elements, element),
+            selectedIds: new Set([element.id]),
+            activeTool: null,
+          }))
+        },
 
   updateElement: (update) => {
     set((s) => {
@@ -243,4 +255,17 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
       const elements = s.elements.map((el) => (el.id === arrowId ? updated : el))
       return { elements }
     }),
-}))
+  }),
+  {
+    name: 'mcanva-canvas-storage',
+    // Only persist elements (not selection or tool state)
+    partialize: (state) => ({ elements: state.elements }),
+  },
+  ),
+  {
+    // Only track elements changes for undo/redo (not selection or tool state)
+    partialize: (state) => ({ elements: state.elements }),
+    // Limit history to 50 states to prevent memory bloat
+    limit: 50,
+  },
+))

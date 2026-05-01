@@ -9,6 +9,8 @@
  * - Delete / Backspace — remove all selected elements then clear selection
  * - Escape           — deactivate the active tool; optionally cancel arrow drawing
  * - Ctrl+D / Cmd+D  — duplicate selected elements at (+20, +20) offset
+ * - Ctrl+Z / Cmd+Z  — undo last action
+ * - Ctrl+Shift+Z / Cmd+Shift+Z — redo last undone action
  */
 import { useEffect } from 'react'
 import { useCanvasStore } from '@/store/canvasStore'
@@ -88,6 +90,20 @@ export function useKeyboardShortcuts({ onCancelArrow }: UseKeyboardShortcutsOpti
           newIds.add(newId)
         }
         selectElements(newIds)
+        return
+      }
+
+      // Ctrl+Z / Cmd+Z — undo (Cmd+Shift+Z for redo)
+      if (key === 'z' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault()
+        const temporal = useCanvasStore.temporal.getState()
+        if (e.shiftKey) {
+          // Redo
+          temporal.redo()
+        } else {
+          // Undo
+          temporal.undo()
+        }
         return
       }
 
